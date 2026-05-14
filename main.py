@@ -533,39 +533,54 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     chat_id = update.effective_chat.id
     d = query.data
-    if d == "join_game":
-        await joingame(update, context)
-    elif d == "vote_start" or d == "vote_open_lobby":
-        await vote_start(update, context)
-    elif d.startswith("confirm_end_"):
-        await confirm_end_action(update, context)
-    elif d == "vote_play":
-        uid = update.effective_user.id
-        if chat_id not in play_votes: play_votes[chat_id] = set()
-        if uid in play_votes[chat_id]:
-            await query.answer("You already voted!", show_alert=True); return
-        play_votes[chat_id].add(uid)
-        count = len(play_votes[chat_id])
-        await query.answer(f"Vote registered! ({count}/2)")
-        if count >= 2:
-            kb = [
-                [InlineKeyboardButton("👤 Solo Mode", callback_data="mode_solo"),
-                 InlineKeyboardButton("👥 Team Mode", callback_data="mode_team")]
-            ]
-            await query.edit_message_text(
-                "✅ <b>Votes Complete!</b>\nChoose your game mode:",
-                reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-            if chat_id in play_votes: del play_votes[chat_id]
-        else:
-            kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
-            await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
+    try:
+        if d == "join_game":
+            await joingame(update, context)
+        elif d == "vote_start" or d == "vote_open_lobby":
+            await vote_start(update, context)
+        elif d.startswith("confirm_end_"):
+            await confirm_end_action(update, context)
+        elif d == "vote_play":
+            uid = update.effective_user.id
+            if chat_id not in play_votes: play_votes[chat_id] = set()
+            
+            if uid in play_votes[chat_id]:
+                await query.answer("You already voted! 🗳️", show_alert=True)
+                return
 
-    elif d.startswith("toss_"):
-        await toss_choice(update, context)
-    elif d.startswith("mode_"):
-        await play_mode_select(update, context)
-    elif d.startswith("tend_") or d == "tclaim_host":
-        await confirm_end_team(update, context)
+            play_votes[chat_id].add(uid)
+            count = len(play_votes[chat_id])
+            
+            if count >= 2:
+                if chat_id in play_votes: del play_votes[chat_id]
+                await query.answer("✅ 2/2 Votes! Choose Mode.")
+                kb = [
+                    [InlineKeyboardButton("👤 Solo Mode", callback_data="mode_solo"),
+                     InlineKeyboardButton("👥 Team Mode", callback_data="mode_team")]
+                ]
+                await query.edit_message_text(
+                    "🏁 <b>Votes Complete!</b>\nSelect your game mode to begin:",
+                    reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+            else:
+                await query.answer(f"Vote registered! ({count}/2) 🏏")
+                kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
+                await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
+
+        elif d.startswith("toss_"):
+            await toss_choice(update, context)
+        elif d.startswith("mode_"):
+            await play_mode_select(update, context)
+        elif d.startswith("tend_") or d == "tclaim_host":
+            await confirm_end_team(update, context)
+        else:
+            # Fallback to answer any unknown queries
+            try: await query.answer()
+            except: pass
+            
+    except Exception as e:
+        logger.error(f"Error in join_button: {e}")
+        try: await query.answer("❌ An error occurred.", show_alert=True)
+        except: pass
 
 async def endgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
