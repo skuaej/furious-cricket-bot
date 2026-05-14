@@ -1,5 +1,4 @@
-import os, logging, html, random, time, threading
-from flask import Flask
+import os, logging, html, random, time, threading, http.server, socketserver
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
@@ -17,12 +16,11 @@ from team_game import (
     handle_team_number, _cancel_team_jobs
 )
 
-app_flask = Flask(__name__)
-@app_flask.route('/')
-def home(): return "Bot is running!"
-
-def run_flask():
-    app_flask.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8000)))
+def run_web():
+    port = int(os.environ.get('PORT', 8000))
+    handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", port), handler) as httpd:
+        httpd.serve_forever()
 
 load_dotenv()
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -256,9 +254,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await get_user(user.id, user.username)
     kb = [[InlineKeyboardButton("Support 🆘", url=SUPPORT_CHAT_LINK or "https://t.me/support")]]
     await update.message.reply_text(
-        f"🏏 Welcome to <b>Cricket Legacy</b>, {html.escape(user.first_name)}!\n\n"
-        "Use /play in a group to start a match.",
+        f"🏏 Welcome to <b>Furious Cricket Game</b>, {html.escape(user.first_name)}!\n\n"
+        "Use /help to see all commands.",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    help_text = (
+        "🏆 <b>Furious Cricket Game - Help Menu</b> 🏆\n\n"
+        "🏏 <b>SOLO MODE COMMANDS:</b>\n"
+        "• /play - Start a solo game (requires 2 votes)\n"
+        "• /joingame - Join an active solo match\n"
+        "• /forcestart - Admin only: Start game immediately\n"
+        "• /score - View live solo scoreboard\n"
+        "• /userinfo - View your global career stats\n"
+        "• /endgame - Admin only: Terminate current game\n\n"
+        "👥 <b>TEAM MODE COMMANDS:</b>\n"
+        "• /play_team - Create a team match lobby\n"
+        "• /claim_host - Claim host rights (if no host)\n"
+        "• /create_team - Host only: Open team registration\n"
+        "• /join_teamA / /join_teamB - Join a team\n"
+        "• /add_a / /add_b - Host only: Add players (ID/Name/Index)\n"
+        "• /remove_a / /remove_b - Host only: Remove players\n"
+        "• /addcap_a / /addcap_b - Host only: Set team captains\n"
+        "• /toss - Host only: Start the match toss\n"
+        "• /setovers - Host only: Set match duration\n"
+        "• /reset_over - Host only: Reset overs before starting\n"
+        "• /batting - Captain/Host: Select striker/non-striker\n"
+        "• /bowling - Captain/Host: Select next bowler\n"
+        "• /score_team - View live team scoreboard\n"
+        "• /member - View all team members and indices\n"
+        "• /end_team - Host only: Terminate team match\n"
+    )
+    await update.message.reply_text(help_text, parse_mode="HTML")
 
 async def lobby_countdown(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -642,6 +669,17 @@ async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             del banned_users[uid]
     await update.message.reply_text("".join(lines), parse_mode="HTML")
 
+async def reset_overs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    uid = update.effective_user.id
+    lobby = get_lobby(chat_id)
+    if not lobby or lobby["host_id"] != uid:
+        await update.message.reply_text("❌ Only the host can reset overs."); return
+    if lobby["phase"] not in ["overs", "live_1st", "live_2nd"]:
+        await update.message.reply_text("Overs cannot be reset at this stage."); return
+    lobby["phase"] = "overs"
+    await update.message.reply_text("🔄 <b>Overs have been reset!</b>\nUse /setovers <num> to set again.", parse_mode="HTML")
+
 async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
@@ -789,18 +827,17 @@ async def log_bot_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     # Start anti-idle server
-    threading.Thread(target=run_flask, daemon=True).start()
+    threading.Thread(target=run_web, daemon=True).start()
     
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("play", play))
     app.add_handler(CommandHandler("forcestart", forcestart))
     app.add_handler(CommandHandler("joingame", joingame))
-    app.add_handler(CommandHandler("forcestart", forcestart))
-    app.add_handler(CommandHandler("forcestat", forcestart))
+    app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(CommandHandler("reset_over", reset_overs))
     app.add_handler(CommandHandler("endgame", endgame))
     app.add_handler(ChatMemberHandler(log_bot_add, ChatMemberHandler.MY_CHAT_MEMBER))
-    app.add_handler(CommandHandler("end", endgame))
     app.add_handler(CommandHandler("score", score))
     app.add_handler(CommandHandler("userinfo", userinfo))
     # Team mode commands
