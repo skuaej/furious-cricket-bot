@@ -224,6 +224,8 @@ async def create_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🎉 Team creation underway!\n📣 Join <b>Team A</b> → /join_teamA\n⏳ <b>1 minute</b> to join!",
         parse_mode="HTML")
     context.job_queue.run_once(_close_team_a, 60, chat_id=chat_id, name=f"teamA_{chat_id}")
+    try: await update.message.delete()
+    except: pass
 
 async def _close_team_a(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -268,6 +270,8 @@ async def join_team_a(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _init_player(lobby, user.id, user.username, user.first_name)
     await get_user(user.id, user.username, user.first_name)
     await update.message.reply_text(f"✈️ <b>{html.escape(user.first_name)}</b> joined <b>Team A</b>!", parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 # ─── /join_teamB ───
 async def join_team_b(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -288,6 +292,8 @@ async def join_team_b(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _init_player(lobby, user.id, user.username, user.first_name)
     await get_user(user.id, user.username, user.first_name)
     await update.message.reply_text(f"🚀 <b>{html.escape(user.first_name)}</b> joined <b>Team B</b>!", parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 # ─── /add_a /add_b ───
 async def add_to_a(update, context): await _host_add(update, context, "a")

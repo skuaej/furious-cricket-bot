@@ -386,8 +386,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except: pass
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try: await update.message.delete()
-    except: pass
     help_text = (
         "🏏 <b>Furious Cricket Bot Help</b>\n\n"
         "<b>🎮 Solo Mode:</b>\n"
@@ -403,13 +401,14 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /create_team - Open team lobby\n\n"
         "<b>📊 Stats & Info:</b>\n"
         "• /member_list - List all players\n"
-        "• /userinfo - View your career stats\n"
-        "• /leaderboard - View top players\n\n"
+        "• /userinfo - View your career stats\n\n"
         "<b>⚠️ Admin:</b>\n"
         "• /end_solo / /end_team - Terminate game\n"
         "• /forcestart - Skip voting"
     )
-    await update.message.reply_text(help_text, parse_mode="HTML")
+    await context.bot.send_message(update.effective_chat.id, help_text, parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 async def lobby_countdown(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -495,8 +494,6 @@ async def notify_turn(chat_id, batsman_id, bowler_id, context):
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    try: await update.message.delete()
-    except: pass
     if update.effective_chat.type == "private":
         await update.message.reply_text("Use /play in a group!")
         return
@@ -517,12 +514,12 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     if play_votes[chat_id]["msg_id"] is None:
         play_votes[chat_id]["msg_id"] = sent.message_id
+    try: await update.message.delete()
+    except: pass
 
 async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    try: await update.message.delete()
-    except: pass
     
     # Admin check
     cm = await context.bot.get_chat_member(chat_id, uid)
@@ -537,6 +534,8 @@ async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[InlineKeyboardButton("👤 Solo Mode", callback_data="mode_solo"),
            InlineKeyboardButton("👥 Team Mode", callback_data="mode_team")]]
     await update.message.reply_text("⚡ <b>Forced Start!</b> Choose your game mode:", reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 async def play_mode_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle Solo/Team button selection."""
@@ -647,8 +646,6 @@ async def _start_solo_lobby(update, context, voters=None):
 async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    try: await update.message.delete()
-    except: pass
     
     if chat_id not in active_lobbies:
         return
@@ -691,8 +688,6 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def leave_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    try: await update.message.delete()
-    except: pass
     if chat_id not in active_lobbies:
         await update.message.reply_text("No active lobby to leave."); return
     lobby = active_lobbies[chat_id]
@@ -706,7 +701,9 @@ async def leave_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 j.schedule_removal()
             await update.message.reply_text("Lobby closed as it became empty.")
     else:
-        await update.message.reply_text("You are not in the lobby.")
+        await update.message.reply_text(f"✅ <b>{html.escape(n)}</b> has left the lobby.", parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -1301,8 +1298,6 @@ def main():
     app.add_handler(ChatMemberHandler(log_bot_add, ChatMemberHandler.MY_CHAT_MEMBER))
     app.add_handler(CommandHandler("score", unified_score))
     app.add_handler(CommandHandler("userinfo", userinfo))
-    app.add_handler(CommandHandler("top", leaderboard))
-    app.add_handler(CommandHandler("leaderboard", leaderboard))
     
     # Admin commands
     app.add_handler(CommandHandler("ping", ping))
