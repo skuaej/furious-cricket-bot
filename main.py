@@ -645,6 +645,38 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try: await query.answer()
         except: pass
 
+async def member_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    # 1. Team Mode Check
+    from team_mode import get_lobby, member_list as team_member_list
+    lobby = get_lobby(chat_id)
+    if lobby:
+        await team_member_list(update, context)
+        return
+        
+    # 2. Solo Mode Check
+    match = await get_match(chat_id)
+    if not match:
+        await update.message.reply_text("No active game in this chat.")
+        return
+        
+    sb = match["scoreboard"]
+    players = match["lobby_players"]
+    cur_bat = match.get("current_batsman")
+    cur_bowl = match.get("current_bowler")
+    
+    lines = [f"📊 <b>Solo Player List</b>\n\n"]
+    for i, uid in enumerate(players, 1):
+        s = sb[str(uid)]
+        name = html.escape(await get_name(uid))
+        if uid == cur_bat: status = " 🏏"
+        elif uid == cur_bowl: status = " 🎯"
+        elif s.get("is_out"): status = " ❌"
+        else: status = " ✅"
+        lines.append(f"{i}. {name}{status}\n")
+    
+    await update.message.reply_text("".join(lines), parse_mode="HTML")
+
 
 async def endgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -693,7 +725,16 @@ async def confirm_end_action(update: Update, context: ContextTypes.DEFAULT_TYPE)
     else:
         await query.edit_message_text("❌ Action cancelled. The game continues!")
 
-async def score(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def unified_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    from team_mode import get_lobby
+    if get_lobby(chat_id):
+        from team_game import score_team
+        await score_team(update, context)
+    else:
+        await score_solo(update, context)
+
+async def score_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     match = await get_match(chat_id)
     if not match or match["match_status"] != "Live":
@@ -912,7 +953,7 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 await context.bot.send_message(chat_id,
                     f"⚾ <b>Ball delivered!</b>\n"
-                    f"🏏 <a href='tg://user?id={sid}'>{s_name}</a>, send your shot (0-6) within 1 minute!",
+                    f"🏏 👍 <a href='tg://user?id={sid}'>{s_name}</a>, send your shot (0-6) within 1 minute!",
                     parse_mode="HTML")
                 context.job_queue.run_once(_bat_timeout_team, 30, chat_id=chat_id, data={"time_left": 60}, name=f"tbat_{chat_id}")
                 return
@@ -1002,13 +1043,13 @@ def main():
     app.add_handler(CommandHandler("remove_cap_b", remove_cap_b))
     app.add_handler(CommandHandler("toss", toss))
     app.add_handler(CommandHandler("setovers", setovers))
-    app.add_handler(CommandHandler("member_list", member_list))
+    app.add_handler(CommandHandler("member_list", member_list_cmd))
     app.add_handler(CommandHandler("play_team", play_team))
     app.add_handler(CommandHandler("bowling", bowling))
     app.add_handler(CommandHandler("batting", batting_cmd))
     app.add_handler(CommandHandler("swap", swap))
-    app.add_handler(CommandHandler("score", score))         # solo
-    app.add_handler(CommandHandler("score_team", score_team))  # team
+    app.add_handler(CommandHandler("score", unified_score))
+    app.add_handler(CommandHandler("score_team", unified_score))
     app.add_handler(CommandHandler("end_team", end_team))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_number))
     app.run_polling(drop_pending_updates=True)

@@ -128,9 +128,12 @@ async def batting_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if lobby["current_bowler"]:
             await _announce_crease(chat_id, context, lobby)
     else:
-        # Wicket replacement
+        # Wicket replacement or error if both alive
+        if lobby["striker"] and lobby["non_striker"]:
+            await update.message.reply_text("❌ Both batters are currently at the crease. No more batters needed right now!"); return
+        
         lobby["striker"] = tid
-        await update.message.reply_text(f"🏏 <b>{tname_esc}</b> comes in at striker end!", parse_mode="HTML")
+        await update.message.reply_text(f"🏏 <a href='tg://user?id={tid}'><b>{tname_esc}</b></a> comes in at striker end!", parse_mode="HTML")
         if lobby["current_bowler"]:
             await _announce_crease(chat_id, context, lobby)
 
