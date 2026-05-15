@@ -148,10 +148,11 @@ async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
         _cancel_team_jobs(chat_id, context)
         # 👍 TAG feedback
         s_name = await _get_name(context, chat_id, uid)
-        await context.bot.send_message(chat_id, 
+        await update.message.reply_text(
             f"👍 <a href='tg://user?id={uid}'>{s_name}</a> <b>played his shot!</b>", 
             parse_mode="HTML")
-        return await _process_ball(update, context, lobby, num)
+        await _process_ball(update, context, lobby, num)
+        return True
     return False
 
 async def _process_ball(update, context, lobby, bat_num):
@@ -184,6 +185,7 @@ async def _process_ball(update, context, lobby, bat_num):
             f"{header}☝️ <b>OUT!</b> {s_name} dismissed!\n"
             f"Score: <b>{r}/{w}</b> ({b//6}.{b%6} ov)", parse_mode="HTML")
         await _check_next(chat_id, context, lobby, wicket=True)
+        return True
     else:
         runs = bat_num
         bs["runs"] += runs; bs["balls"] += 1; bs["bat_hist"].append(runs)
@@ -215,6 +217,7 @@ async def _process_ball(update, context, lobby, bat_num):
 
 
         await _check_next(chat_id, context, lobby, wicket=False)
+        return True
 
 async def _check_next(chat_id, context, lobby, wicket=False):
     bat_key = f"team_{lobby['batting_team']}_score"

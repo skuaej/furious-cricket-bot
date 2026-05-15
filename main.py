@@ -845,7 +845,7 @@ async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
-    if text not in ["1", "2", "3", "4", "5", "6"]:
+    if text not in ["0", "1", "2", "3", "4", "5", "6"]:
         return
     num = int(text)
     uid = update.effective_user.id
@@ -905,31 +905,33 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ It's not your turn to bowl, or the game is waiting for the batter. Please check the group!")
         return
     else:
-        # BATTER sends shot in group - check solo then team
-        chat_id = update.effective_chat.id
-        # Try team mode first
-        if get_lobby(chat_id):
-            # team numbers: 0-6
-            if text not in ["0","1","2","3","4","5","6"]:
+        try:
+            # BATTER sends shot in group - check solo then team
+            chat_id = update.effective_chat.id
+            # Try team mode first
+            if get_lobby(chat_id):
+                # team numbers: 0-6
+                if text not in ["0","1","2","3","4","5","6"]:
+                    return
+                if await handle_team_number(update, context):
+                    return
+            match = await get_match(chat_id)
+            if not match or match["match_status"] != "Live":
                 return
-            handled = await handle_team_number(update, context)
-            if handled:
+            if match["current_batsman"] != uid:
+                if match["current_bowler"] == uid:
+                    await update.message.reply_text("❌ You are the <b>Bowler</b>! Send in <b>DM</b>.", parse_mode="HTML")
                 return
-        match = await get_match(chat_id)
-        if not match or match["match_status"] != "Live":
-            return
-        if match["current_batsman"] != uid:
-            if match["current_bowler"] == uid:
-                await update.message.reply_text("❌ You are the <b>Bowler</b>! Send in <b>DM</b>.", parse_mode="HTML")
-            return
-        delivery = match.get("current_delivery", {"status": "waiting_bowler"})
-        if delivery.get("status") != "waiting_batter":
-            return
-        cancel_turn_jobs(chat_id, context)
-        await update.message.reply_text("👍")
-        bowler_num = delivery.get("bowler_num", 1)
-        match = await get_match(chat_id)
-        await process_ball(chat_id, bowler_num, num, context, match)
+            delivery = match.get("current_delivery", {"status": "waiting_bowler"})
+            if delivery.get("status") != "waiting_batter":
+                return
+            cancel_turn_jobs(chat_id, context)
+            await update.message.reply_text("👍")
+            bowler_num = delivery.get("bowler_num", 1)
+            match = await get_match(chat_id)
+            await process_ball(chat_id, bowler_num, num, context, match)
+        except Exception as e:
+            logger.error(f"Error in handle_number: {e}")
 
 async def log_bot_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log when the bot is added to a new group."""
