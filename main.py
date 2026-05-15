@@ -388,12 +388,14 @@ async def lobby_countdown(context: ContextTypes.DEFAULT_TYPE):
         else:
             await start_game_logic(chat_id, context)
         return
-    if tl == 30:
-        await context.bot.send_message(chat_id, "⏳ <b>30 seconds left</b> to join the Solo Match!\nType /joingame to enter.", parse_mode="HTML")
-    elif tl == 15:
-        await context.bot.send_message(chat_id, "⏳ <b>15 seconds left</b> to join!", parse_mode="HTML")
-    elif tl == 5:
-        await context.bot.send_message(chat_id, "⚠️ <b>5 seconds remaining!</b> Hurry up!", parse_mode="HTML")
+    if tl == 120:
+        await context.bot.send_message(chat_id, "⏳ <b>2 minutes left</b> to join the Solo Match!\nType /joingame to enter.", parse_mode="HTML")
+    elif tl == 60:
+        await context.bot.send_message(chat_id, "⏳ <b>1 minute left</b> to join!", parse_mode="HTML")
+    elif tl == 30:
+        await context.bot.send_message(chat_id, "⏳ <b>30 seconds left</b> to join!", parse_mode="HTML")
+    elif tl == 10:
+        await context.bot.send_message(chat_id, "⚠️ <b>10 seconds remaining!</b> Hurry up!", parse_mode="HTML")
 
 async def start_game_logic(chat_id, context):
     if chat_id not in active_lobbies:
@@ -516,9 +518,9 @@ async def _start_solo_lobby(update, context):
         active_lobbies[chat_id] = {"host": uid, "players": [uid], "votes": [], "status": "waiting", "open": True}
         kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
         await query.edit_message_text(
-            f"🏏 <b>Match Lobby Opened!</b>\nPlayers joined: 1 | Min 2 needed\nJoining period: 30 seconds — game starts after!",
+            f"🏏 <b>Match Lobby Opened!</b>\nPlayers joined: 1 | Min 2 needed\nJoining period: 2 minutes — game starts after!",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-        for delay, sl in [(0, 30), (15, 15), (25, 5), (30, 0)]:
+        for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                 chat_id=chat_id, name=f"lobby_{chat_id}")
     else:
@@ -544,9 +546,9 @@ async def _start_solo_lobby(update, context):
             f"🏏 <b>Match Lobby Opened!</b>\n"
             f"Host: {html.escape(update.effective_user.first_name)}\n"
             f"Players joined: 1 | Min 2 needed\n"
-            f"Joining period: 30 seconds \u2014 game starts after!",
+            f"Joining period: 2 minutes \u2014 game starts after!",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-        for delay, sl in [(0, 30), (15, 15), (25, 5), (30, 0)]:
+        for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                 chat_id=chat_id, name=f"lobby_{chat_id}")
     else:
@@ -617,11 +619,11 @@ async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lobby["open"] = True
             lobby["players"] = lobby["votes"].copy()
             await q.answer("Lobby Opened!")
-            await q.edit_message_text(f"✅ <b>Lobby Opened!</b>\nPlayers: {cv}\nJoining Period: 30 seconds.", parse_mode="HTML")
+            await q.edit_message_text(f"✅ <b>Lobby Opened!</b>\nPlayers: {cv}\nJoining Period: 2 minutes.", parse_mode="HTML")
             kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
             await context.bot.send_message(chat_id, "🏟 <b>Solo Match Lobby is now OPEN!</b>", reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
             # Start countdown
-            for delay, sl in [(0, 30), (15, 15), (25, 5), (30, 0)]:
+            for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
                 context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                     chat_id=chat_id, name=f"lobby_{chat_id}")
         else:
@@ -952,7 +954,7 @@ async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"⚡ <b>Lobby Force-Opened by Admin!</b>\nPlayers: {len(lobby['players'])}/2\nWaiting for more...",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-        for delay, sl in [(0, 30), (15, 15), (25, 5), (30, 0)]:
+        for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                 chat_id=chat_id, name=f"lobby_{chat_id}")
 
