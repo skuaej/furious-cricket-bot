@@ -528,7 +528,7 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if uid == striker or uid == non_striker:
             status = " 🏏"  # batting
         elif uid == cur_bowler:
-            status = " ⚾"  # bowling
+            status = " 🎯"  # bowling
         elif uid in dismissed:
             status = " ❌"  # out
         elif lobby.get("phase", "") in ("live_1st", "live_2nd"):

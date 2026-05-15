@@ -265,38 +265,63 @@ async def _check_next(chat_id, context, lobby, wicket=False):
     await _announce_crease(chat_id, context, lobby)
 
 async def _over_card(chat_id, context, lobby):
-    bat_t = lobby["batting_team"].upper()
-    sc = lobby[f"team_{lobby['batting_team']}_score"]
-    r, w, b = sc["runs"], sc["wickets"], sc["balls"]
-    rr = round(r/(b/6),2) if b > 0 else 0.0
-    lines = [f"╭━─━─≪✠≫─━─━╮\n───⊱ Over {b//6} Scorecard ⊰───\n\n"
-             f"🔵 Team {bat_t}: <b>{r}/{w}</b> ({b//6}.0 ov) | RR: {rr}\n"]
-    if lobby["inning"] == 2:
-        first = lobby[f"team_{lobby['bowling_team']}_score"]["runs"]
-        target = first + 1
-        needed = target - r
-        balls_left = (lobby["overs"] * 6) - b
-        req_rr = round(needed / (balls_left/6), 2) if balls_left > 0 else 0.0
-        lines.append(f"🎯 Target: <b>{target}</b> | Need <b>{needed}</b> in {balls_left} balls (Req RR: {req_rr})\n\n")
-    else:
+    sa, sb_sc = lobby["team_a_score"], lobby["team_b_score"]
+    r1, w1, b1 = sa["runs"], sa["wickets"], sa["balls"]
+    r2, w2, b2 = sb_sc["runs"], sb_sc["wickets"], sb_sc["balls"]
+    
+    host_id = lobby["host_id"]
+    try:
+        hm = await context.bot.get_chat_member(chat_id, host_id)
+        hname = html.escape(hm.user.first_name)
+    except: hname = "Host"
+
+    lines = [f"📊 Game #{chat_id} Scoreboard\n\n",
+             f"╭━─━─━─━─≪✠≫─━─━─━─━╮\n\n",
+             f"───────⊱ Tᴇᴀᴍ - A ⊰──────\n\n"]
+    
+    for uid in lobby["team_a"]:
+        s = lobby["player_stats"].get(str(uid), {})
+        name = await _get_name(context, chat_id, uid)
+        runs = s.get("runs", 0)
+        balls = s.get("balls", 0)
+        hist_b = s.get("bat_hist", [])
+        hist = ", ".join(str(x) for x in hist_b) if hist_b else None
+        
+        # Show all players, not just ones who played
+        out_mark = "" if not s.get("is_out") else "" # in screenshot no out mark? "W" in hist
+        lines.append(f"✴️ {name} = {runs}({balls})\n")
+        lines.append(f"  ╰⊚ ID : {uid}\n")
+        if hist:
+            lines.append(f"    ╰⊚ ({hist})\n")
         lines.append("\n")
-    for uid in (lobby["team_a"] if lobby["batting_team"] == "a" else lobby["team_b"]):
+
+    lines.append(f"╭──────── • ◆ • ─────────\n"
+                 f"ᴛᴇᴀᴍ A sᴄᴏʀᴇ = {r1}/{w1} ʀᴜɴs | ᴏᴠᴇʀs: {b1//6}.{b1%6}\n"
+                 f"╰──────── • ◆ • ─────────\n\n")
+
+    lines.append("× •-•-•-•-•-••-•-•⟮ 🏏 ⟯•-•-•-•-•-•-•-•-• ×\n\n")
+    lines.append(f"───────⊱ Tᴇᴀᴍ - B ⊰──────\n\n")
+    
+    for uid in lobby["team_b"]:
         s = lobby["player_stats"].get(str(uid), {})
-        if s.get("balls", 0) > 0 or s.get("is_out"):
-            name = await _get_name(context, chat_id, uid)
-            hist = ", ".join(str(x) for x in s.get("bat_hist", [])) or "—"
-            out = " ✝" if s.get("is_out") else " 🏏"
-            lines.append(f"✴️ {name}{out} = {s.get('runs',0)}({s.get('balls',0)}) [{hist}]\n")
-    bowl_t = lobby["bowling_team"].upper()
-    lines.append(f"\n🎯 Team {bowl_t} Bowling:\n")
-    for uid in (lobby["team_a"] if lobby["bowling_team"] == "a" else lobby["team_b"]):
-        s = lobby["player_stats"].get(str(uid), {})
-        if s.get("bowl_hist"):
-            name = await _get_name(context, chat_id, uid)
-            nb = len(s["bowl_hist"])
-            econ = round(s.get("runs_given",0)/(nb/6),2) if nb > 0 else 0
-            lines.append(f"🎯 {name} = {s.get('wickets',0)}W-{s.get('runs_given',0)}R Econ:{econ}\n")
-    lines.append("╰━─━─≪✠≫─━─━╯")
+        name = await _get_name(context, chat_id, uid)
+        runs = s.get("runs", 0)
+        balls = s.get("balls", 0)
+        hist_b = s.get("bat_hist", [])
+        hist = ", ".join(str(x) for x in hist_b) if hist_b else None
+        
+        lines.append(f"✴️ {name} = {runs}({balls})\n")
+        lines.append(f"  ╰⊚ ID : {uid}\n")
+        if hist:
+            lines.append(f"    ╰⊚ ({hist})\n")
+        lines.append("\n")
+        
+    lines.append(f"╭──────── • ◆ • ─────────\n"
+                 f"ᴛᴇᴀᴍ ʙ sᴄᴏʀᴇ = {r2}/{w2} ʀᴜɴs | ᴏᴠᴇʀs: {b2//6}.{b2%6}\n"
+                 f"╰──────── • ◆ • ─────────\n\n")
+
+    lines.append("༺═────────────────═༻\n\n")
+    lines.append(f"👑Host: {hname}\n")
     await context.bot.send_message(chat_id, "".join(lines), parse_mode="HTML")
 
 async def _end_1st(chat_id, context, lobby):
@@ -365,7 +390,7 @@ async def score_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
             s = lobby["player_stats"].get(str(pid), {})
             pname = await _get_name(context, chat_id, pid)
             csr = round((s.get("runs",0)/s.get("balls",1))*100,2) if s.get("balls",0)>0 else 0
-            bat_lines.append(f"🏏 {pname} = {s.get('runs',0)}({s.get('balls',0)})\n╬⊕(𝔹𝔺𝔹: {csr})\n")
+            bat_lines.append(f"🏏 {pname} = {s.get('runs',0)}({s.get('balls',0)})\n╬⊕(𝔹𝔹: {csr})\n")
     
     bowl_line = ""
     if bowl_id:
@@ -384,7 +409,7 @@ async def score_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🎯 <b>Target:</b> {target} Runs\n"
             f"╬⊕ Remaining: {balls_rem} Balls ({overs}.0 ov)\n"
             f"📈 <b>RRR:</b> {rrr}\n"
-            f"────⟂⟂⟂────────⟁⟁⟁────"
+            f"────⟂⟂⟂────────⟁⟁⟁────\n"
         )
     
     msg = (
@@ -400,7 +425,6 @@ async def score_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👥 <b>Team - B:</b> {r2}/{w2} | {b2//6}.{b2%6} ov\n╬⊕ 𝘾𝘽𝘽: {crr2:.2f}\n"
         f"────────────────────\n"
         + target_section +
-        f"────⟂⟂⟂────────⟁⟁⟁────\n"
         f"<b>👑 Host: {hname}</b>\n"
         f"<b>❰ ⏳ Total Overs: {overs}</b>"
     )

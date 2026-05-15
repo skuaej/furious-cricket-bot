@@ -105,19 +105,9 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         elif runs == 6:
             sb[bk]["sixes"] += 1
 
-        # Check if bowler used 3 balls this turn
-        rotate_bowler = sb[bwk]["bowl_count_this_turn"] >= 3
-
         upd = {"scoreboard": sb, "batter_timeout_count": 0,
             "current_delivery": {"bowler_num": None, "status": "waiting_bowler"}}
 
-        if rotate_bowler:
-            sb[bwk]["bowl_count_this_turn"] = 0
-            nb, ni = await next_bowler({"lobby_players": match["lobby_players"],
-                "current_batsman": batsman_id, "bowler_index": match.get("bowler_index", 1)})
-            upd["current_bowler"] = nb
-            upd["bowler_index"] = ni
-            bowler_id = nb
 
         await update_match(chat_id, upd)
         name = html.escape(await get_name(batsman_id))
@@ -148,7 +138,7 @@ async def finish_match(chat_id, context):
     state_emojis = ["⚪", "🟠", "🟣", "🔵", "🔴", "🟡", "🟢"]
 
     lines = ["<b>📊 Current Solo Score</b>\n\n",
-             "─────➱ Sᴏʟᴏ Pʟᴀʏᴇʀ ➰────\n\n"]
+             "─────⊱ Sᴏʟᴏ Pʟᴀʏᴇʀ ⊰────\n\n"]
 
     best_bat_uid, best_bat_sr = None, -1.0
     best_bowl_uid, best_bowl_econ = None, 9999.0
@@ -163,9 +153,9 @@ async def finish_match(chat_id, context):
         dot = state_emojis[idx % len(state_emojis)]
         lines.append(
             f"{idx}. {dot} {name} = {s['runs']}({s['balls_faced']})\n"
-            f"    ╬⊕ 4️s: {s['fours']:02d}, 6️s: {s['sixes']:02d} - ID: {uid}\n"
-            f"      ╬⊕ Bat: ({bat_hist})\n"
-            f"      ╬⊕ Bowl: ({bowl_hist})\n\n"
+            f"    ╰⊚ 4️⃣s: {s['fours']:02d}, 6️⃣s: {s['sixes']:02d} - ID: {uid}\n"
+            f"      ╰⊚ Bat: ({bat_hist})\n"
+            f"      ╰⊚ Bowl: ({bowl_hist})\n\n"
         )
         if sr > best_bat_sr:
             best_bat_sr = sr
@@ -675,7 +665,7 @@ async def score(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cur_bowl = match.get("current_bowler")
 
     lines = [f"<b>📊 Current Solo Score</b>\n\n",
-             f"─────➱ Sᴏʟᴏ Pʟᴀʏᴇʀ ➰────\n\n"]
+             f"─────⊱ Sᴏʟᴏ Pʟᴀʏᴇʀ ⊰────\n\n"]
 
     for idx, uid in enumerate(players, 1):
         s = sb[str(uid)]
@@ -695,9 +685,9 @@ async def score(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines.append(
             f"{idx}. {dot} {n} = {s['runs']}({s['balls_faced']})\n"
-            f"    ╬⊕ 4️s: {s['fours']:02d}, 6️s: {s['sixes']:02d} - ID: {uid}\n"
-            f"      ╬⊕ Bat: ({bat_h})\n"
-            f"      ╬⊕ Bowl: ({bowl_h})\n\n"
+            f"    ╰⊚ 4️⃣s: {s['fours']:02d}, 6️⃣s: {s['sixes']:02d} - ID: {uid}\n"
+            f"      ╰⊚ Bat: ({bat_h})\n"
+            f"      ╰⊚ Bowl: ({bowl_h})\n\n"
         )
     await update.message.reply_text("".join(lines), parse_mode="HTML")
 
@@ -705,14 +695,58 @@ async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     u = await get_user(uid)
     name = html.escape(u.get("username", update.effective_user.first_name))
+    import datetime
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    
+    hs = u.get("highest_score", 0)
+    hs_b = u.get("highest_score_balls", 0)
+    runs = u.get("total_runs", 0)
+    balls = u.get("total_balls", 0)
+    wkts = u.get("total_wickets", 0)
+    fours = u.get("fours", 0)
+    sixes = u.get("sixes", 0)
+    cents = u.get("centuries", 0)
+    fifs = u.get("fifties", 0)
+    ducks = u.get("ducks", 0)
+    hats = u.get("hat_tricks", 0)
+    
+    sr = round((runs / balls) * 100, 2) if balls > 0 else 0
+    econ = round(u.get("runs_conceded", 0) / (u.get("balls_bowled", 1)/6), 2) if u.get("balls_bowled", 0) > 0 else 0
+
+    moms_bat = u.get("mom_bat", 0)
+    moms_bowl = u.get("mom_bowl", 0)
+    moms = moms_bat + moms_bowl
+    
+    cap_wins = u.get("captain_wins", 0)
+    cap_losses = u.get("captain_losses", 0)
+    cap_total = cap_wins + cap_losses
+    cap_win_pct = round((cap_wins / cap_total) * 100, 1) if cap_total > 0 else 0
+
     lines = [
-        f"👤 <b>Player Info: {name}</b>\n",
-        f"🏏 Total Runs: {u.get('total_runs', 0)}\n",
-        f"🎯 Total Wickets: {u.get('total_wickets', 0)}\n",
-        f"📊 Matches Played: {u.get('matches_played', 0)}\n",
-        f"🏆 Wins: {u.get('wins', 0)}\n",
+        f"🏏 <b>Stats Summary</b>\n",
+        f"👤 User: {name}\n",
+        f"🆔 User ID: {uid}\n",
+        f"📅 Date: {date_str}\n",
+        f"─────⊱◈◈◈⊰─────\n",
+        f"🏆 Highest Score: {hs}({hs_b} Balls)\n",
+        f"🎮 Best Game Host: {u.get('host_count', 0)}\n",
+        f"📊 Runs: {runs} ({balls})\n",
+        f"🎯 Wickets: {wkts}\n",
+        f"💥 Sixes: {sixes}\n",
+        f"✨ Fours: {fours}\n",
+        f"🔥 Centuries: {cents}\n",
+        f"⭐ Fifties: {fifs}\n",
+        f"🦆 Ducks: {ducks}\n",
+        f"🎩 Hat-Tricks: {hats}\n",
+        f"⚡ Strike Rate: {sr}\n",
+        f"🎯 Economy Rate: {econ}\n",
+        f"─────⊱◈◈◈⊰─────\n",
+        f"🏅 Man of the Match: {moms}\n\n",
+        f" ╰⊚(🏏:{moms_bat}) + (⚾:{moms_bowl})\n\n",
+        f"─────⊱◈◈◈⊰─────\n",
+        f"🧢 Best captain: {cap_total} (🏆: {cap_win_pct}%)\n",
+        f" ╰⊚(🏆: {cap_wins}) + (😞:{cap_losses}) for team\n"
     ]
-    # Check ban status
     if uid in banned_users:
         remaining = int(banned_users[uid] - time.time())
         if remaining > 0:
