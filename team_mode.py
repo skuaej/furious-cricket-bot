@@ -378,6 +378,7 @@ async def setovers(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Overs must be between 1 and 50."); return
         
     lobby["overs"] = num
+    lobby["phase"] = "ready"
     await update.message.reply_text(f"✅ Match set for <b>{num} overs</b>.\nUse /play_team to start!", parse_mode="HTML")
     try: await update.message.delete()
     except: pass
