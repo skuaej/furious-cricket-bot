@@ -156,6 +156,8 @@ async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
     text = update.message.text
+    if text not in ["0", "1", "2", "3", "4", "5"]:
+        return False
     try: num = int(text)
     except: return False
     
@@ -163,7 +165,7 @@ async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not lobby or lobby["phase"] not in ("live_1st", "live_2nd"): return False
     delivery = lobby["delivery"]
 
-    if uid == lobby["current_bowler"] and delivery["status"] == "waiting_bowler" and 1 <= num <= 6:
+    if uid == lobby["current_bowler"] and delivery["status"] == "waiting_bowler" and 0 <= num <= 5:
         # Warning: Bowler sending in group
         b_name = await _get_name(context, chat_id, uid, "Bowler")
         await context.bot.send_message(chat_id,
@@ -171,7 +173,7 @@ async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
             parse_mode="HTML")
         return True # Swallow the message so it's not used as a batter's shot
         
-    if uid == lobby["striker"] and delivery["status"] == "waiting_batter" and 0 <= num <= 6:
+    if uid == lobby["striker"] and delivery["status"] == "waiting_batter" and 0 <= num <= 5:
         _cancel_team_jobs(chat_id, context)
         # 👍 TAG feedback + Reaction
         s_name = await _get_name(context, chat_id, uid)
@@ -199,7 +201,7 @@ async def _process_ball(update, context, lobby, bat_num):
     lobby["balls_in_over"] += 1
     s_name = await _get_name(context, chat_id, sid, "Batter")
     b_name = await _get_name(context, chat_id, bid, "Bowler")
-    num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣", 6: "6️⃣"}
+    num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣"}
     b_emoji = num_emojis.get(bowl_num, str(bowl_num))
     bt_emoji = num_emojis.get(bat_num, str(bat_num))
 
@@ -225,7 +227,7 @@ async def _process_ball(update, context, lobby, bat_num):
         runs = bat_num
         bs["runs"] += runs; bs["balls"] += 1; bs["bat_hist"].append(runs)
         if runs == 4: bs["fours"] += 1
-        if runs == 6: bs["sixes"] += 1
+        if runs == 5: bs["sixes"] += 1
         bws["runs_given"] += runs
         lobby[bat_key]["runs"] += runs
         lobby["delivery"] = {"bowler_num": None, "status": "waiting_bowler"}
@@ -377,7 +379,7 @@ async def _end_1st(chat_id, context, lobby):
     sc = lobby[f"team_{lobby['batting_team']}_score"]
     r, w, b = sc["runs"], sc["wickets"], sc["balls"]
     await _over_card(chat_id, context, lobby)
-    host_name = await _get_name(context, chat_id, lobby["host_id"], "Host")
+    host_name = await _get_name(chat_id, lobby["host_id"], "Host")
     await context.bot.send_message(chat_id,
         f"🏁 <b>1st Innings Over!</b>\nTeam {bat_t}: <b>{r}/{w}</b> ({b//6}.{b%6} ov)\n\n"
         f"📣 <b>{host_name}</b>: /swap to start 2nd innings!", parse_mode="HTML")
@@ -573,23 +575,29 @@ async def _bowl_timeout_team(context: ContextTypes.DEFAULT_TYPE):
     lobby = get_lobby(chat_id)
     if not lobby or lobby["delivery"]["status"] != "waiting_bowler": return
     
-    b_name = await _get_name(context, chat_id, lobby["current_bowler"], "Bowler")
+    bid = lobby["current_bowler"]
+    s_name = await _get_name(context, chat_id, lobby["striker"], "Batter")
     
     if time_left > 10:
         next_time = 30 if time_left == 60 else (20 if time_left == 30 else 10)
-        await context.bot.send_message(chat_id, f"⏳ <b>Bowler Timeout:</b> <a href='tg://user?id={lobby['current_bowler']}'>{b_name}</a>, {time_left}s left to bowl in DM!", parse_mode="HTML")
+        await context.bot.send_message(chat_id, f"⏳ <b>Bowler Timeout:</b> {time_left}s left!", parse_mode="HTML")
         context.job_queue.run_once(_bowl_timeout_team, next_time, chat_id=chat_id, data={"time_left": time_left - next_time}, name=f"tbowl_{chat_id}")
     else:
         # Final timeout: Auto ball
-        auto = random.randint(1, 6)
+        auto = random.randint(0, 5)
         lobby["delivery"]["bowler_num"] = auto
         lobby["delivery"]["status"] = "waiting_batter"
         
-        s_name = await _get_name(context, chat_id, lobby["striker"], "Batter")
-        sid = lobby["striker"]
+        try:
+            await context.bot.send_message(bid, 
+                f"⚾ <b>YOUR TURN TO BOWL (Team Match)!</b>\n"
+                f"Batter: {s_name}\n"
+                f"Send a number 0–5 in this chat.", parse_mode="HTML")
+        except: pass
+        
         await context.bot.send_message(chat_id,
             f"⏰ <b>Bowler timeout!</b> ⚾ Auto ball delivered: <b>{auto}</b>\n"
-            f"🏏 <a href='tg://user?id={sid}'>{s_name}</a> send your shot in group!", parse_mode="HTML")
+            f"🏏 <a href='tg://user?id={lobby['striker']}'>{s_name}</a> send your shot in group!", parse_mode="HTML")
         context.job_queue.run_once(_bat_timeout_team, 30, chat_id=chat_id, data={"time_left": 30}, name=f"tbat_{chat_id}")
 
 async def _bat_timeout_team(context: ContextTypes.DEFAULT_TYPE):

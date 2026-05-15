@@ -468,7 +468,7 @@ async def notify_turn(chat_id, batsman_id, bowler_id, context):
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
     try:
         await context.bot.send_message(bowler_id,
-            f"⚾ <b>YOUR TURN TO BOWL!</b>\n\nBatter: {bat_name}\nSend a number 1–6 in this chat.", parse_mode="HTML")
+            f"⚾ <b>YOUR TURN TO BOWL!</b>\n\nBatter: {bat_name}\nSend a number 0–5 in this chat.", parse_mode="HTML")
     except Exception:
         await context.bot.send_message(chat_id,
             f"⚠️ Could not DM {bowl_tag}. Tell them to start the bot in PM first!",
@@ -1050,7 +1050,7 @@ async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
-    if text not in ["0", "1", "2", "3", "4", "5", "6"]:
+    if text not in ["0", "1", "2", "3", "4", "5"]:
         return
     num = int(text)
     uid = update.effective_user.id
@@ -1076,7 +1076,7 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 bat = await get_user(match["current_batsman"])
                 await context.bot.send_message(match["match_id"],
                     f"⚾️ <b>Ball Delivered!</b>\n🏏 <a href='tg://user?id={bat['user_id']}'>"
-                    f"{html.escape(bat['username'])}</a>, send your shot (1-6)!", parse_mode="HTML")
+                    f"{html.escape(bat['username'])}</a>, send your shot (0-5)!", parse_mode="HTML")
                 context.job_queue.run_once(bat_timeout_cb, 60, chat_id=match["match_id"],
                     name=f"bat_timeout_{match['match_id']}")
                 return
