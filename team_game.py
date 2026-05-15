@@ -156,7 +156,7 @@ async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
     text = update.message.text
-    if text not in ["0", "1", "2", "3", "4", "5"]:
+    if text not in ["0", "1", "2", "3", "4", "5", "6"]:
         return False
     try: num = int(text)
     except: return False
