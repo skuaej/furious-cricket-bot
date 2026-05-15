@@ -435,8 +435,8 @@ async def swap(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
     lobby = get_lobby(chat_id)
-    if not lobby or lobby["host_id"] != uid:
-        await update.message.reply_text("❌ Only the host can swap."); return
+    if not lobby:
+        await update.message.reply_text("No active match."); return
     if lobby["phase"] != "between_innings":
         await update.message.reply_text("Not the right time!"); return
     lobby["batting_team"], lobby["bowling_team"] = lobby["bowling_team"], lobby["batting_team"]

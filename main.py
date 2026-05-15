@@ -1015,8 +1015,6 @@ async def confirm_end_action(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def unified_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    try: await update.message.delete()
-    except: pass
     if get_lobby(chat_id):
         await score_team(update, context)
     else:
