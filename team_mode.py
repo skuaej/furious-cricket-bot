@@ -264,11 +264,9 @@ async def _set_captain(update, context, team):
     await update.message.reply_text(f"👑 {html.escape(tname)} is now Captain of Team {team.upper()}!")
     
     if lobby.get("cap_a") and lobby.get("cap_b"):
-        kb = [[InlineKeyboardButton("🪙 Heads", callback_data="toss_heads"),
-               InlineKeyboardButton("🪙 Tails", callback_data="toss_tails")]]
         await update.message.reply_text(
-            "✅ <b>Both captains are set!</b>\n🪙 <b>Toss Time!</b> Host, choose your side:",
-            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+            "✅ <b>Both captains are set!</b>\nHost, use /toss to decide the match preference.",
+            parse_mode="HTML")
     
     try: await update.message.delete()
     except: pass
@@ -318,57 +316,18 @@ async def toss(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    if not query: return
+    
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
     lobby = get_lobby(chat_id)
-    if not lobby: 
-        try: await query.answer("No active lobby.")
+    
+    if not lobby:
+        try: await query.answer("❌ No active lobby found. Please use /play to start a new game.", show_alert=True)
         except: pass
         return
 
-    # 1. Host initiates the toss (Heads/Tails choice)
-    if query.data == "toss_init":
-        if uid != lobby["host_id"]:
-            try: await query.answer("Only the Host can start the toss!", show_alert=True)
-            except: pass
-            return
-        kb = [[InlineKeyboardButton("🪙 Heads", callback_data="toss_heads"),
-               InlineKeyboardButton("🪙 Tails", callback_data="toss_tails")]]
-        await query.edit_message_text("🪙 <b>Toss Time!</b>\nHost, choose your side:", reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-        return
-
-    # 2. Host picks Heads/Tails
-    if query.data in ["toss_heads", "toss_tails"]:
-        if uid != lobby["host_id"]:
-            try: await query.answer("Only the Host can pick!", show_alert=True)
-            except: pass
-            return
-        
-        # Determine winner
-        user_pick = "Heads" if query.data == "toss_heads" else "Tails"
-        outcome = random.choice(["Heads", "Tails"])
-        winner = "a" if outcome == user_pick else "b" # Simple logic: host (Team A usually) wins if match
-        # Wait, host might be on Team B. Let's just pick a random winner anyway for fairness or use the logic.
-        # Let's just do a random choice to avoid bias based on who host is.
-        winner = random.choice(["a", "b"])
-        
-        lobby["toss_winner"] = winner
-        lobby["phase"] = "toss_choice"
-        cap_id = lobby[f"cap_{winner}"]
-        cap_name = await _get_name(context, chat_id, cap_id, "Captain")
-
-        
-        kb = [[InlineKeyboardButton("🏏 Batting", callback_data="toss_bat"),
-               InlineKeyboardButton("⚾ Bowling", callback_data="toss_bowl")]]
-        
-        await query.edit_message_text(
-            f"🪙 The coin shows <b>{outcome}</b>!\n"
-            f"🎉 <b>Team {winner.upper()} won the toss!</b>\n\n"
-            f"👑 <b>Host</b>, choose preference for Team {winner.upper()}:",
-            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-        return
-
-    # Phase 3: Host chooses Batting or Bowling
+    # Handle Batting/Bowling selection (triggered by /toss result buttons)
     if query.data in ["toss_bat", "toss_bowl"]:
         if uid != lobby["host_id"]:
             try: await query.answer("❌ Only the Host can choose the preference!", show_alert=True)
@@ -377,7 +336,7 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
         winner = lobby.get("toss_winner")
         if not winner:
-            try: await query.answer("❌ Toss data missing. Start again with /toss", show_alert=True)
+            try: await query.answer("❌ Toss data missing. Use /toss.", show_alert=True)
             except: pass
             return
             
@@ -397,6 +356,10 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"✅ Team {winner.upper()} chose to <b>{choice}</b> first!\n\n"
             f"👋 Host, set match overs using /setovers <num>", parse_mode="HTML")
         return
+
+    # Fallback for older buttons
+    try: await query.answer()
+    except: pass
 
 # ─── /setovers ───
 async def setovers(update: Update, context: ContextTypes.DEFAULT_TYPE):
