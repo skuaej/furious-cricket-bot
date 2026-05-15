@@ -538,6 +538,17 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update_user(user.id, {"username": user.first_name})
         count = len(lobby["players"])
         msg = f"✅ <b>{html.escape(user.first_name)}</b> joined! ({count} player{'s' if count > 1 else ''} in lobby)"
+        
+        if count == 2:
+            # Cancel existing countdowns
+            for j in context.job_queue.get_jobs_by_name(f"lobby_{chat_id}"):
+                j.schedule_removal()
+            # Start fresh 10s countdown
+            for delay, sl in [(0, 10), (10, 0)]:
+                context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
+                    chat_id=chat_id, name=f"lobby_{chat_id}")
+            msg += "\n\n⚠️ <b>Minimum players reached! Game starts in 10 seconds...</b>"
+
         if update.callback_query:
             await context.bot.send_message(chat_id, msg, parse_mode="HTML")
         else:
@@ -573,9 +584,14 @@ async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for delay, sl in [(0, 60), (30, 30), (50, 10), (60, 0)]:
                 context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                     chat_id=chat_id, name=f"lobby_{chat_id}")
-            # If already 2 players (from voters), start immediately
+            # If already 2 players (from voters), start 10s countdown
             if len(lobby["players"]) >= 2:
-                await start_game_logic(chat_id, context)
+                for j in context.job_queue.get_jobs_by_name(f"lobby_{chat_id}"):
+                    j.schedule_removal()
+                for delay, sl in [(0, 10), (10, 0)]:
+                    context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
+                        chat_id=chat_id, name=f"lobby_{chat_id}")
+                await context.bot.send_message(chat_id, "⚠️ <b>Lobby has 2+ players! Starting in 10 seconds...</b>", parse_mode="HTML")
         else:
             await q.answer(f"Vote recorded ({cv}/2)")
             await q.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"Vote to Open Lobby ({cv}/2) 🗳", callback_data="vote_open_lobby")]]))
