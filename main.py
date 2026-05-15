@@ -35,6 +35,20 @@ play_votes = {}
 banned_users = {}  # {user_id: unban_timestamp}
 
 # ─── HELPERS ───
+COMMENTARY = {
+    0: ["A solid defensive stroke.", "No run there, straight to the fielder.", "Dot ball! Building pressure.", "Well played, but no run."],
+    1: ["Just a single, keeps the strike rotating.", "Pushed into the gap for one.", "Easy run, well judged.", "A quick single taken."],
+    2: ["Excellent running between the wickets for two!", "Driven through the covers for a couple.", "They take two! Good hustle.", "Nicely placed for a double."],
+    3: ["Superb placement! They race back for the third.", "Deep into the outfield, three runs taken.", "Magnificent running! That's three.", "They scamper through for three!"],
+    4: ["CRACKED away for FOUR! 🏏", "Pure class! The ball races to the boundary.", "Beautifully timed! That's a boundary.", "Four runs! What a magnificent shot!"],
+    5: ["Overthrows! A rare five runs for the batting side.", "Five runs! Chaos in the field.", "Unbelievable! They get five runs!"],
+    6: ["HUUUGE! That's out of the park! SIX! 🚀", "Maximum! A monstrous hit!", "Into the stands! What a shot!", "Cleared the ropes with ease! SIX!"],
+    "W": ["BOWLED HIM! A massive breakthrough! ☝️", "OUT! The finger goes up!", "WICKET! A huge blow for the batting side!", "Caught! That's the end of the innings for him."]
+}
+
+def get_commentary(num):
+    return random.choice(COMMENTARY.get(num, ["Nice shot!"]))
+
 async def get_name(uid):
     u = await get_user(uid)
     return u.get("first_name") or u.get("username", f"Player {uid}") or f"Player {uid}"
@@ -76,8 +90,10 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         sb[bk]["bat_history"].append("W")
         sb[bwk]["wickets_taken"] += 1
         name = html.escape(await get_name(batsman_id))
+        comm = get_commentary("W")
         await context.bot.send_message(chat_id,
-            f"☝️ <b>OUT!</b> {name} is out! (Shot: {batter_num}, Ball: {bowler_num})", parse_mode="HTML")
+            f"☝️ <b>OUT!</b> {name} is out! (Shot: {batter_num}, Ball: {bowler_num})\n\n"
+            f"<i>{comm}</i>", parse_mode="HTML")
 
         # Reset bowler turn count
         sb[bwk]["bowl_count_this_turn"] = 0
@@ -114,9 +130,11 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         name = html.escape(await get_name(batsman_id))
         b_name = html.escape(await get_name(bowler_id))
         tag = f'<a href="tg://user?id={batsman_id}"><b>{name}</b></a>'
+        comm = get_commentary(runs)
         await context.bot.send_message(chat_id,
             f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>{bowler_num}</b> | 🏏 BAT: <b>{batter_num}</b>\n\n"
             f"🏏 {tag} scores <b>{runs}</b> runs! 👍\n"
+            f"<i>{comm}</i>\n"
             f"Score: <b>{sb[bk]['runs']}</b>({sb[bk]['balls_faced']})", parse_mode="HTML")
         cancel_turn_jobs(chat_id, context)
         await notify_turn(chat_id, batsman_id, bowler_id, context)
@@ -544,11 +562,11 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Cancel existing countdowns
             for j in context.job_queue.get_jobs_by_name(f"lobby_{chat_id}"):
                 j.schedule_removal()
-            # Start fresh 10s countdown
-            for delay, sl in [(0, 10), (10, 0)]:
+            # Start fresh 30s countdown
+            for delay, sl in [(0, 30), (20, 10), (30, 0)]:
                 context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                     chat_id=chat_id, name=f"lobby_{chat_id}")
-            msg += "\n\n⚠️ <b>Minimum players reached! Game starts in 10 seconds...</b>"
+            msg += "\n\n⚠️ <b>Minimum players reached! Game starts in 30 seconds...</b>"
 
         if update.callback_query:
             await context.bot.send_message(chat_id, msg, parse_mode="HTML")
@@ -585,14 +603,14 @@ async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for delay, sl in [(0, 60), (30, 30), (50, 10), (60, 0)]:
                 context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                     chat_id=chat_id, name=f"lobby_{chat_id}")
-            # If already 2 players (from voters), start 10s countdown
+            # If already 2 players (from voters), start 30s countdown
             if len(lobby["players"]) >= 2:
                 for j in context.job_queue.get_jobs_by_name(f"lobby_{chat_id}"):
                     j.schedule_removal()
-                for delay, sl in [(0, 10), (10, 0)]:
+                for delay, sl in [(0, 30), (20, 10), (30, 0)]:
                     context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                         chat_id=chat_id, name=f"lobby_{chat_id}")
-                await context.bot.send_message(chat_id, "⚠️ <b>Lobby has 2+ players! Starting in 10 seconds...</b>", parse_mode="HTML")
+                await context.bot.send_message(chat_id, "⚠️ <b>Lobby has 2+ players! Starting in 30 seconds...</b>", parse_mode="HTML")
         else:
             await q.answer(f"Vote recorded ({cv}/2)")
             await q.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"Vote to Open Lobby ({cv}/2) 🗳", callback_data="vote_open_lobby")]]))

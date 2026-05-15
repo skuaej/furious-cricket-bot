@@ -11,6 +11,20 @@ async def _get_name(context, chat_id, uid, default="Player"):
     try: return html.escape((await context.bot.get_chat_member(chat_id, uid)).user.first_name)
     except: return default
 
+COMMENTARY = {
+    0: ["A solid defensive stroke.", "No run there, straight to the fielder.", "Dot ball! Building pressure.", "Well played, but no run."],
+    1: ["Just a single, keeps the strike rotating.", "Pushed into the gap for one.", "Easy run, well judged.", "A quick single taken."],
+    2: ["Excellent running between the wickets for two!", "Driven through the covers for a couple.", "They take two! Good hustle.", "Nicely placed for a double."],
+    3: ["Superb placement! They race back for the third.", "Deep into the outfield, three runs taken.", "Magnificent running! That's three.", "They scamper through for three!"],
+    4: ["CRACKED away for FOUR! 🏏", "Pure class! The ball races to the boundary.", "Beautifully timed! That's a boundary.", "Four runs! What a magnificent shot!"],
+    5: ["Overthrows! A rare five runs for the batting side.", "Five runs! Chaos in the field.", "Unbelievable! They get five runs!"],
+    6: ["HUUUGE! That's out of the park! SIX! 🚀", "Maximum! A monstrous hit!", "Into the stands! What a shot!", "Cleared the ropes with ease! SIX!"],
+    "W": ["BOWLED HIM! A massive breakthrough! ☝️", "OUT! The finger goes up!", "WICKET! A huge blow for the batting side!", "Caught! That's the end of the innings for him."]
+}
+
+def get_commentary(num):
+    return random.choice(COMMENTARY.get(num, ["Nice shot!"]))
+
 async def _announce_crease(chat_id, context, lobby):
     """Announce striker, non-striker and bowler clearly."""
     sid = lobby["striker"]; nsid = lobby["non_striker"]; bid = lobby["current_bowler"]
@@ -159,8 +173,12 @@ async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
     if uid == lobby["striker"] and delivery["status"] == "waiting_batter" and 0 <= num <= 6:
         _cancel_team_jobs(chat_id, context)
-        # 👍 TAG feedback
+        # 👍 TAG feedback + Reaction
         s_name = await _get_name(context, chat_id, uid)
+        try:
+            await update.message.set_reaction(reaction=[ReactionTypeEmoji(emoji="👍")])
+        except: pass
+        
         await update.message.reply_text(
             f"👍 <a href='tg://user?id={uid}'>{s_name}</a>", 
             parse_mode="HTML")
@@ -191,11 +209,12 @@ async def _process_ball(update, context, lobby, bat_num):
         lobby[bat_key]["wickets"] += 1
         lobby["dismissed"].append(sid)
         lobby["striker"] = None
-        lobby["delivery"] = {"bowler_num": None, "status": "waiting_bowler"}
         lobby["batter_warnings"] = 0
         r, w, b = lobby[bat_key]["runs"], lobby[bat_key]["wickets"], lobby[bat_key]["balls"]
+        comm = get_commentary("W")
         await context.bot.send_message(chat_id,
-            f"{header}☝️ <b>OUT!</b> {s_name} dismissed!\n"
+            f"{header}☝️ <b>OUT!</b> {s_name} dismissed!\n\n"
+            f"<i>{comm}</i>\n"
             f"Score: <b>{r}/{w}</b> ({b//6}.{b%6} ov)", parse_mode="HTML")
         await _check_next(chat_id, context, lobby, wicket=True)
         return True
@@ -220,8 +239,10 @@ async def _process_ball(update, context, lobby, bat_num):
         
         s_tag = f'<a href="tg://user?id={sid}"><b>{s_name}</b></a>'
         emoji = "🔵" if lobby["batting_team"] == "a" else "🔴"
+        comm = get_commentary(runs)
         msg = (f"{header}{emoji} <b>{runs} run{'s' if runs!=1 else ''}!</b> 👍\n"
-               f"💥 <b>Hit by:</b> {s_tag}!"
+               f"💥 <b>Hit by:</b> {s_tag}!\n"
+               f"<i>{comm}</i>\n"
                f"{' 🔄 Strike rotated!' if rotate else ''}\n"
                f"Score: <b>{r}/{w}</b> ({b//6}.{b%6} ov)\n"
                f"🔴 Striker: {s2_name} | ⚪ Non-striker: {ns_name}")
