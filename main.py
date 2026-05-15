@@ -410,14 +410,20 @@ async def lobby_countdown(context: ContextTypes.DEFAULT_TYPE):
         else:
             await start_game_logic(chat_id, context)
         return
+    mentions = []
+    for pid in lobby["players"]:
+        pn = html.escape(await get_name(pid))
+        mentions.append(f'<a href="tg://user?id={pid}">{pn}</a>')
+    plist = ", ".join(mentions)
+
     if tl == 120:
-        await context.bot.send_message(chat_id, "⏳ <b>2 minutes left</b> to join the Solo Match!\nType /joingame to enter.", parse_mode="HTML")
+        await context.bot.send_message(chat_id, f"⏳ <b>2 minutes left</b> to join!\n\n👥 Players: {plist}\n\n👉 /join to enter | /leave_solo to exit", parse_mode="HTML")
     elif tl == 60:
-        await context.bot.send_message(chat_id, "⏳ <b>1 minute left</b> to join!", parse_mode="HTML")
+        await context.bot.send_message(chat_id, f"⏳ <b>1 minute left</b> to join!\n\n👥 Players: {plist}\n\n👉 /join to enter | /leave_solo to exit", parse_mode="HTML")
     elif tl == 30:
-        await context.bot.send_message(chat_id, "⏳ <b>30 seconds left</b> to join!", parse_mode="HTML")
+        await context.bot.send_message(chat_id, f"⏳ <b>30 seconds left</b> to join!\n\n👥 Players: {plist}\n\n👉 /join to enter", parse_mode="HTML")
     elif tl == 10:
-        await context.bot.send_message(chat_id, "⚠️ <b>10 seconds remaining!</b> Hurry up!", parse_mode="HTML")
+        await context.bot.send_message(chat_id, f"⚠️ <b>10 seconds remaining!</b> Hurry up!\n\n👥 Players: {plist}", parse_mode="HTML")
 
 async def start_game_logic(chat_id, context):
     if chat_id not in active_lobbies:
@@ -540,11 +546,19 @@ async def _start_solo_lobby(update, context, voters=None):
         # Pre-authorized by 2-vote system
         players_to_join = list(set(voters + [uid])) # Ensure clicker is also in
         active_lobbies[chat_id] = {"host": players_to_join[0], "players": players_to_join, "votes": [], "status": "waiting", "open": True}
+        
+        mentions = []
+        for pid in players_to_join:
+            pn = html.escape(await get_name(pid))
+            mentions.append(f'<a href="tg://user?id={pid}">{pn}</a>')
+        plist = ", ".join(mentions)
+
         kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
         await edit_any(query,
-            f"✅ <b>Votes Complete! Lobby Opened!</b>\n"
-            f"Players joined: {len(players_to_join)} | Min 2 needed\n"
-            f"Joining period: 2 minutes — game starts after!",
+            f"✅ <b>Votes Complete! Lobby Opened!</b>\n\n"
+            f"👥 <b>Joined:</b> {plist}\n"
+            f"⏳ <b>Time Left:</b> 2 minutes\n\n"
+            f"👉 /join to enter | /leave_solo to exit",
             InlineKeyboardMarkup(kb))
         for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
@@ -578,16 +592,18 @@ async def _start_solo_lobby(update, context, voters=None):
     is_admin = cm.status in ['administrator', 'creator']
 
     if is_admin:
-        # Admin opens lobby immediately, 1-min countdown starts
         active_lobbies[chat_id] = {"host": uid, "players": [uid], "votes": [], "status": "waiting", "open": True}
+        uname = html.escape(await get_name(uid))
+        utag = f'<a href="tg://user?id={uid}">{uname}</a>'
+        
         kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
         await context.bot.send_photo(
             chat_id=chat_id,
             photo=HEADER_IMAGE,
-            caption=f"🏏 <b>Match Lobby Opened!</b>\n"
-                    f"Host: {html.escape(update.effective_user.first_name)}\n"
-                    f"Players joined: 1 | Min 2 needed\n"
-                    f"Joining period: 2 minutes \u2014 game starts after!",
+            caption=f"🏏 <b>Match Lobby Opened!</b>\n\n"
+                    f"👑 <b>Host:</b> {utag}\n"
+                    f"⏳ <b>Time Left:</b> 2 minutes\n\n"
+                    f"👉 /join to enter | /leave_solo to exit",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML"
         )
         for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
