@@ -18,10 +18,14 @@ from team_game import (
 )
 
 def run_web():
-    port = int(os.environ.get('PORT', 8000))
-    handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", port), handler) as httpd:
-        httpd.serve_forever()
+    try:
+        port = int(os.environ.get('PORT', 8000))
+        handler = http.server.SimpleHTTPRequestHandler
+        with socketserver.TCPServer(("0.0.0.0", port), handler) as httpd:
+            logger.info(f"✅ Web server started on port {port}")
+            httpd.serve_forever()
+    except Exception as e:
+        logger.error(f"❌ Web server failed: {e}")
 
 load_dotenv()
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -1120,6 +1124,7 @@ async def log_bot_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(LOG_CHANNEL_ID, msg, parse_mode="HTML")
 
 def main():
+    logger.info("🚀 Starting bot...")
     # Start anti-idle server
     threading.Thread(target=run_web, daemon=True).start()
     
