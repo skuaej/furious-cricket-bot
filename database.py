@@ -72,6 +72,7 @@ async def create_match(match_id, lobby_players):
             "wickets_taken": 0,
             "bowl_history": [],     # list of ball numbers bowled
             "bowl_count_this_turn": 0,  # resets when bowler rotates
+            "bowl_results": [],        # list of results (e.g. 'W', '0', '1', etc)
         }
 
     match = {

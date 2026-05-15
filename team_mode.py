@@ -33,7 +33,7 @@ def _init_player(lobby, uid, username=None, first_name=None):
             "first_name": first_name or f"Player {uid}",
             "runs": 0, "balls": 0, "fours": 0, "sixes": 0,
             "bat_hist": [], "is_out": False,
-            "wickets": 0, "runs_given": 0, "bowl_hist": []
+            "wickets": 0, "runs_given": 0, "bowl_hist": [], "bowl_results": []
         }
     else:
         if username: lobby["player_stats"][uid_str]["username"] = username

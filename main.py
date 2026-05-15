@@ -119,6 +119,27 @@ async def next_batsman(match):
             return uid
     return None
 
+async def check_milestones(chat_id, context, name, score, is_batting=True):
+    if is_batting:
+        if score == 50:
+            await context.bot.send_message(chat_id, f"🔥 <b>HALF CENTURY!</b> {name} reaches <b>50 runs</b>! What a knock! 👏", parse_mode="HTML")
+        elif score == 100:
+            await context.bot.send_message(chat_id, f"🏆 <b>CENTURY!</b> {name} reaches <b>100 runs</b>! An absolute masterclass! 👑", parse_mode="HTML")
+        elif score > 100 and score % 100 == 0:
+            await context.bot.send_message(chat_id, f"👑 <b>{score} RUNS!</b> {name} is unstoppable! Another milestone reached! 🚀", parse_mode="HTML")
+    else:
+        # Bowling
+        if score == 3:
+            await context.bot.send_message(chat_id, f"🎯 <b>3 WICKET HAUL!</b> {name} is on fire with <b>3 wickets</b>! 🏏", parse_mode="HTML")
+        elif score == 5:
+            await context.bot.send_message(chat_id, f"🎖 <b>FIVE WICKET HAUL!</b> {name} has claimed <b>5 wickets</b>! A legendary spell! 🏅", parse_mode="HTML")
+
+async def check_hattrick(chat_id, context, name, results):
+    if len(results) >= 3 and all(r == "W" for r in results[-3:]):
+        await context.bot.send_message(chat_id, f"🎩 <b>HAT-TRICK!</b> {name} has taken <b>3 wickets in 3 balls</b>! Incredible! ⚡️🏏", parse_mode="HTML")
+    elif len(results) >= 2 and all(r == "W" for r in results[-2:]):
+        await context.bot.send_message(chat_id, f"🔥 <b>CONSECUTIVE WICKETS!</b> {name} has taken <b>2 wickets in 2 balls</b>! He's on a hat-trick! ⚡️🏏", parse_mode="HTML")
+
 async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_bowl=False):
     """Core ball processing logic."""
     batsman_id = match["current_batsman"]
@@ -137,11 +158,19 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         sb[bk]["is_out"] = True
         sb[bk]["bat_history"].append("W")
         sb[bwk]["wickets_taken"] += 1
+        sb[bwk].setdefault("bowl_results", []).append("W")
+        
         name = html.escape(await get_name(batsman_id))
+        b_name = html.escape(await get_name(bowler_id))
+        
         comm = get_commentary("W")
         await context.bot.send_message(chat_id,
             f"☝️ <b>OUT!</b> {name} is out! (Shot: {batter_num}, Ball: ❓)\n\n"
             f"<i>{comm}</i>", parse_mode="HTML")
+            
+        # Check bowling milestones
+        await check_hattrick(chat_id, context, b_name, sb[bwk]["bowl_results"])
+        await check_milestones(chat_id, context, b_name, sb[bwk]["wickets_taken"], is_batting=False)
 
         # Reset bowler turn count
         sb[bwk]["bowl_count_this_turn"] = 0
@@ -165,10 +194,16 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         sb[bk]["runs"] += runs
         sb[bk]["bat_history"].append(batter_num)
         sb[bwk]["runs_given"] += runs
+        sb[bwk].setdefault("bowl_results", []).append(runs)
+        
         if runs == 4:
             sb[bk]["fours"] += 1
         elif runs == 6:
             sb[bk]["sixes"] += 1
+            
+        # Check batting milestones
+        name = html.escape(await get_name(batsman_id))
+        await check_milestones(chat_id, context, name, sb[bk]["runs"], is_batting=True)
 
         upd = {"scoreboard": sb, "batter_timeout_count": 0, "bowler_timeout_count": 0,
             "current_delivery": {"bowler_num": None, "status": "waiting_bowler"}}

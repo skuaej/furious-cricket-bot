@@ -188,6 +188,24 @@ async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return True
     return False
 
+async def _check_milestones_team(chat_id, context, name, score, is_batting=True):
+    if is_batting:
+        if score == 50:
+            await context.bot.send_message(chat_id, f"🔥 <b>HALF CENTURY!</b> {name} reaches <b>50 runs</b>! Great knock! 👏", parse_mode="HTML")
+        elif score == 100:
+            await context.bot.send_message(chat_id, f"🏆 <b>CENTURY!</b> {name} reaches <b>100 runs</b>! Stunning performance! 👑", parse_mode="HTML")
+    else:
+        if score == 3:
+            await context.bot.send_message(chat_id, f"🎯 <b>3 WICKET HAUL!</b> {name} has taken <b>3 wickets</b>! 🏏", parse_mode="HTML")
+        elif score == 5:
+            await context.bot.send_message(chat_id, f"🎖 <b>FIVE WICKET HAUL!</b> {name} has claimed <b>5 wickets</b>! 🏅", parse_mode="HTML")
+
+async def _check_hattrick_team(chat_id, context, name, results):
+    if len(results) >= 3 and all(r == "W" for r in results[-3:]):
+        await context.bot.send_message(chat_id, f"🎩 <b>HAT-TRICK!</b> {name} has taken <b>3 wickets in 3 balls</b>! Unbelievable! ⚡️🏏", parse_mode="HTML")
+    elif len(results) >= 2 and all(r == "W" for r in results[-2:]):
+        await context.bot.send_message(chat_id, f"🔥 <b>CONSECUTIVE WICKETS!</b> {name} has taken <b>2 wickets in 2 balls</b>! He's on a hat-trick! ⚡️🏏", parse_mode="HTML")
+
 async def _process_ball(update, context, lobby, bat_num):
     chat_id = update.effective_chat.id
     bowl_num = lobby["delivery"]["bowler_num"]
@@ -211,6 +229,11 @@ async def _process_ball(update, context, lobby, bat_num):
     if bowl_num == bat_num:
         bs["bat_hist"].append("W"); bs["is_out"] = True
         bws["wickets"] += 1
+        bws.setdefault("bowl_results", []).append("W")
+        
+        # Check milestones
+        await _check_hattrick_team(chat_id, context, b_name, bws["bowl_results"])
+        await _check_milestones_team(chat_id, context, b_name, bws["wickets"], is_batting=False)
         lobby[bat_key]["wickets"] += 1
         lobby["dismissed"].append(sid)
         lobby["striker"] = None
@@ -228,8 +251,12 @@ async def _process_ball(update, context, lobby, bat_num):
         runs = bat_num
         bs["runs"] += runs; bs["balls"] += 1; bs["bat_hist"].append(runs)
         if runs == 4: bs["fours"] += 1
-        if runs == 5: bs["sixes"] += 1
+        if runs == 6: bs["sixes"] += 1
         bws["runs_given"] += runs
+        bws.setdefault("bowl_results", []).append(runs)
+        
+        # Check milestones
+        await _check_milestones_team(chat_id, context, s_name, bs["runs"], is_batting=True)
         lobby[bat_key]["runs"] += runs
         lobby["delivery"] = {"bowler_num": None, "status": "waiting_bowler"}
         lobby["batter_warnings"] = 0
