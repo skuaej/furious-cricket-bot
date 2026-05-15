@@ -180,7 +180,7 @@ async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not lobby or lobby["phase"] not in ("live_1st", "live_2nd"): return False
     delivery = lobby["delivery"]
 
-    if uid == lobby["current_bowler"] and delivery["status"] == "waiting_bowler" and 0 <= num <= 5:
+    if uid == lobby["current_bowler"] and delivery["status"] == "waiting_bowler" and 0 <= num <= 6:
         # Warning: Bowler sending in group
         b_name = await _get_name(context, chat_id, uid, "Bowler")
         await context.bot.send_message(chat_id,
@@ -188,7 +188,7 @@ async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
             parse_mode="HTML")
         return True # Swallow the message so it's not used as a batter's shot
         
-    if uid == lobby["striker"] and delivery["status"] == "waiting_batter" and 0 <= num <= 5:
+    if uid == lobby["striker"] and delivery["status"] == "waiting_batter" and 0 <= num <= 6:
         _cancel_team_jobs(chat_id, context)
         # 👍 TAG feedback + Reaction
         s_name = await _get_name(context, chat_id, uid)
@@ -234,7 +234,7 @@ async def _process_ball(update, context, lobby, bat_num):
     lobby["balls_in_over"] += 1
     s_name = await _get_name(context, chat_id, sid, "Batter")
     b_name = await _get_name(context, chat_id, bid, "Bowler")
-    num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣"}
+    num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣", 6: "6️⃣"}
     b_emoji = num_emojis.get(bowl_num, str(bowl_num))
     bt_emoji = num_emojis.get(bat_num, str(bat_num))
 
