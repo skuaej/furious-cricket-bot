@@ -13,7 +13,8 @@ from team_mode import (
 )
 from team_game import (
     play_team, bowling, batting_cmd, swap, score_team,
-    handle_team_number, _cancel_team_jobs
+    handle_team_number, _cancel_team_jobs, _get_name as _get_team_name,
+    _bat_timeout_team, _bowl_timeout_team
 )
 
 def run_web():
@@ -664,9 +665,9 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def member_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     # 1. Team Mode Check
-    from team_mode import get_lobby, member_list as team_member_list
     lobby = get_lobby(chat_id)
     if lobby:
+        from team_mode import member_list as team_member_list
         await team_member_list(update, context)
         return
         
@@ -743,9 +744,7 @@ async def confirm_end_action(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def unified_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    from team_mode import get_lobby
     if get_lobby(chat_id):
-        from team_game import score_team
         await score_team(update, context)
     else:
         await score_solo(update, context)
@@ -963,9 +962,8 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 # Notify group
                 sid = lobby["striker"]; bid = lobby["current_bowler"]
-                from team_game import _get_name, _bat_timeout_team
-                s_name = await _get_name(context, chat_id, sid, "Batter")
-                b_name = await _get_name(context, chat_id, bid, "Bowler")
+                s_name = await _get_team_name(context, chat_id, sid, "Batter")
+                b_name = await _get_team_name(context, chat_id, bid, "Bowler")
                 
                 await context.bot.send_message(chat_id,
                     f"⚾ <b>Ball delivered!</b>\n"
