@@ -246,8 +246,8 @@ async def _process_ball(update, context, lobby, bat_num):
         emoji = "🔵" if lobby["batting_team"] == "a" else "🔴"
         comm = get_commentary(runs)
         run_label = "" if runs == 0 else ("🔥 FOUR! " if runs == 4 else ("🏆 FIVE! " if runs == 5 else ""))
-        msg = (f"{header}{emoji} {run_label}<b>{runs} runs!</b> 👍\n"
-               f"💥 <b>Hit by:</b> {s_tag}!\n"
+        run_text = "" if runs >= 4 else f" scores <b>{runs} runs!</b>"
+        msg = (f"{header}{emoji} {run_label}{s_tag}{run_text} 👍\n"
                f"<i>{comm}</i>\n"
                f"{' 🔄 Strike rotated!' if rotate else ''}\n"
                f"Score: <b>{r}/{w}</b> ({b//6}.{b%6} ov)\n"

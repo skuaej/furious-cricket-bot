@@ -126,7 +126,7 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         name = html.escape(await get_name(batsman_id))
         comm = get_commentary("W")
         await context.bot.send_message(chat_id,
-            f"☝️ <b>OUT!</b> {name} is out! (Shot: {batter_num}, Ball: {bowler_num})\n\n"
+            f"☝️ <b>OUT!</b> {name} is out! (Shot: {batter_num}, Ball: ❓)\n\n"
             f"<i>{comm}</i>", parse_mode="HTML")
 
         # Reset bowler turn count
@@ -170,10 +170,12 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         bt_emoji = num_emojis.get(batter_num, str(batter_num))
         
         # Bowler number is hidden in the result header as requested
+        # Improved formatting for boundaries
         run_label = " (Dot Ball)" if runs == 0 else ("🔥 FOUR! " if runs == 4 else ("🏆 FIVE! " if runs == 5 else ""))
+        run_text = "" if runs >= 4 else f" scores <b>{runs} runs!</b>"
         await context.bot.send_message(chat_id,
             f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>❓</b> | 🏏 BAT: <b>{bt_emoji}</b>{' (Dot Ball)' if runs == 0 else ''}\n\n"
-            f"{run_label}🏏 {tag} scores <b>{runs} runs!</b> 👍\n"
+            f"{run_label}🏏 {tag}{run_text} 👍\n"
             f"<i>{comm}</i>\n"
             f"Score: <b>{sb[bk]['runs']}</b>({sb[bk]['balls_faced']})", parse_mode="HTML")
         cancel_turn_jobs(chat_id, context)
@@ -1106,7 +1108,7 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 await context.bot.send_message(chat_id,
                     f"⚾ <b>Ball delivered!</b>\n"
-                    f"🏏 👍 <a href='tg://user?id={sid}'>{s_name}</a>, send your shot (0-6) within 1 minute!",
+                    f"🏏 👍 <a href='tg://user?id={sid}'>{s_name}</a>, send your shot (0-5) within 1 minute!",
                     parse_mode="HTML")
                 context.job_queue.run_once(_bat_timeout_team, 30, chat_id=chat_id, data={"time_left": 60}, name=f"tbat_{chat_id}")
                 return
@@ -1120,8 +1122,8 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id = update.effective_chat.id
             # Try team mode first
             if get_lobby(chat_id):
-                # team numbers: 0-6
-                if text not in ["0","1","2","3","4","5","6"]:
+                # team numbers: 0-5
+                if text not in ["0","1","2","3","4","5"]:
                     return
                 if await handle_team_number(update, context):
                     return
