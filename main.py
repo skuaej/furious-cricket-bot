@@ -370,9 +370,10 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
         "🏆 <b>Furious Cricket Game - Help Menu</b> 🏆\n\n"
         "🏏 <b>SOLO MODE COMMANDS:</b>\n"
-        "• /play - Start a 2-vote request to open a solo lobby\n"
-        "• /joingame - Join an active solo match\n"
-        "• /forcestart - Admin only: Start game immediately\n"
+        "• /play - Request a match (needs 2 votes)\n"
+        "• /join - Join an open solo lobby\n"
+        "• /leave_solo - Leave the solo lobby\n"
+        "• /forcestart - Admin only: Force open lobby\n"
         "• /score - View live solo scoreboard\n"
         "• /member_list - View players and status\n"
         "• /userinfo - View your global career stats\n"
@@ -537,11 +538,12 @@ async def _start_solo_lobby(update, context, voters=None):
     
     if voters:
         # Pre-authorized by 2-vote system
-        active_lobbies[chat_id] = {"host": voters[0], "players": voters.copy(), "votes": [], "status": "waiting", "open": True}
+        players_to_join = list(set(voters + [uid])) # Ensure clicker is also in
+        active_lobbies[chat_id] = {"host": players_to_join[0], "players": players_to_join, "votes": [], "status": "waiting", "open": True}
         kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
         await edit_any(query,
             f"✅ <b>Votes Complete! Lobby Opened!</b>\n"
-            f"Players joined: {len(voters)} | Min 2 needed\n"
+            f"Players joined: {len(players_to_join)} | Min 2 needed\n"
             f"Joining period: 2 minutes — game starts after!",
             InlineKeyboardMarkup(kb))
         for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
@@ -643,6 +645,24 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.message: await update.message.reply_text(msg)
         elif update.callback_query: await update.callback_query.answer(msg, show_alert=True)
         return
+
+async def leave_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    uid = update.effective_user.id
+    if chat_id not in active_lobbies:
+        await update.message.reply_text("No active lobby to leave."); return
+    lobby = active_lobbies[chat_id]
+    if uid in lobby["players"]:
+        lobby["players"].remove(uid)
+        await update.message.reply_text(f"✅ <b>{html.escape(update.effective_user.first_name)}</b> left the lobby.", parse_mode="HTML")
+        if not lobby["players"]:
+            del active_lobbies[chat_id]
+            # Cancel jobs
+            for j in context.job_queue.get_jobs_by_name(f"lobby_{chat_id}"):
+                j.schedule_removal()
+            await update.message.reply_text("Lobby closed as it became empty.")
+    else:
+        await update.message.reply_text("You are not in the lobby.")
 
 async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -1212,6 +1232,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("play", play))
     app.add_handler(CommandHandler("join", joingame))
+    app.add_handler(CommandHandler("leave_solo", leave_solo))
     app.add_handler(CommandHandler("forcestart", forcestart))
     app.add_handler(CommandHandler("joingame", joingame))
     app.add_handler(CommandHandler("help", help_cmd))
