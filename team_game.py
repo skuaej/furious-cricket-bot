@@ -28,13 +28,24 @@ def get_commentary(num):
 async def _announce_crease(chat_id, context, lobby):
     """Announce striker, non-striker and bowler clearly."""
     sid = lobby["striker"]; nsid = lobby["non_striker"]; bid = lobby["current_bowler"]
-    s_tag = f"<a href='tg://user?id={sid}'>{await _get_name(context, chat_id, sid)}</a>"
-    ns_tag = f"<a href='tg://user?id={nsid}'>{await _get_name(context, chat_id, nsid)}</a>"
-    b_tag = f"<a href='tg://user?id={bid}'>{await _get_name(context, chat_id, bid)}</a>"
+    s_tag = f"<a href='tg://user?id={sid}'>{await _get_name(context, chat_id, sid)}</a>" if sid else "None"
+    ns_tag = f"<a href='tg://user?id={nsid}'>{await _get_name(context, chat_id, nsid)}</a>" if nsid else "None"
+    b_tag = f"<a href='tg://user?id={bid}'>{await _get_name(context, chat_id, bid)}</a>" if bid else "None"
     
-    sc = lobby[f"team_{lobby['batting_team']}_score"]
-    r, w, b = sc["runs"], sc["wickets"], sc["balls"]
+    sa, sb = lobby["team_a_score"], lobby["team_b_score"]
+    r1, w1, b1 = sa["runs"], sa["wickets"], sa["balls"]
+    r2, w2, b2 = sb["runs"], sb["wickets"], sb["balls"]
     
+    chase_info = ""
+    if lobby["inning"] == 2:
+        target = lobby[f"team_{lobby['bowling_team']}_score"]["runs"] + 1
+        curr_runs = lobby[f"team_{lobby['batting_team']}_score"]["runs"]
+        curr_balls = lobby[f"team_{lobby['batting_team']}_score"]["balls"]
+        total_balls = lobby["overs"] * 6
+        runs_left = target - curr_runs
+        balls_left = total_balls - curr_balls
+        chase_info = f"🎯 <b>Target: {target}</b> | 🏃 <b>{runs_left} runs left</b> from <b>{balls_left} balls</b>\n\n"
+
     bot_info = await context.bot.get_me()
     dm_link = f"https://t.me/{bot_info.username}"
     kb = [[InlineKeyboardButton("📩 Send Bowl in DM", url=dm_link)]]
@@ -43,17 +54,20 @@ async def _announce_crease(chat_id, context, lobby):
     all_players = lobby["team_a"] + lobby["team_b"]
     tags = " ".join([f"<a href='tg://user?id={p}'>\u200b</a>" for p in all_players])
 
-    await context.bot.send_message(chat_id,
+    msg = (
         f"🏏 <b>At the crease:</b>\n"
         f"🔴 Striker: <b>{s_tag}</b>\n"
         f"⚪ Non-Striker: <b>{ns_tag}</b>\n"
         f"🎯 Bowling: <b>{b_tag}</b>\n\n"
-        f"Score: <b>{r}/{w}</b> ({b//6}.{b%6} ov)\n\n"
-        f"🎯 <b>{b_tag}</b> Go to bot bowl and send number 1-6 within 1 minute!\n"
-        f"🏏 <b>{s_tag}</b> Wait for ball then send 0-6 in group\n{tags}",
-        reply_markup=InlineKeyboardMarkup(kb),
-        parse_mode="HTML")
-    # Start Bowler Timeout Countdown (60s total)
+        f"👥 <b>Team A Score:</b> {r1}/{w1} ({b1//6}.{b1%6} ov)\n"
+        f"👥 <b>Team B Score:</b> {r2}/{w2} ({b2//6}.{b2%6} ov)\n\n"
+        f"{chase_info}"
+        f"🎯 <b>{b_tag}</b> Send number 1-6 in DM!\n"
+        f"🏏 <b>{s_tag}</b> Send 0-6 in group\n{tags}"
+    )
+
+    await context.bot.send_message(chat_id, msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    # Start Bowler Timeout Countdown
     context.job_queue.run_once(_bowl_timeout_team, 30, chat_id=chat_id, data={"time_left": 30}, name=f"tbowl_{chat_id}")
 
 # ─── /play_team ───
@@ -674,12 +688,20 @@ async def _bat_timeout_team(context: ContextTypes.DEFAULT_TYPE):
         bat_key = f"team_{lobby['batting_team']}_score"
         s = lobby["player_stats"].get(sk, {})
         if warns >= 2:
-            s.setdefault("bat_hist",[]).append("W"); s["is_out"] = True
+            # 3rd timeout = OUT
+            lobby["player_stats"][sk]["is_out"] = True
+            lobby["player_stats"][sk].setdefault("bat_hist", []).append("W")
             lobby[bat_key]["wickets"] += 1
-            lobby["dismissed"].append(sid); lobby["striker"] = None
-            lobby["delivery"] = {"bowler_num":None,"status":"waiting_bowler"}
+            lobby["dismissed"].append(sid)
+            lobby["striker"] = None
+            lobby["delivery"] = {"bowler_num": None, "status": "waiting_bowler"}
             lobby["batter_warnings"] = 0
+            
             await context.bot.send_message(chat_id, f"⏰ <b>{s_name} timed out 3 times — OUT!</b>", parse_mode="HTML")
+            
+            cap_id = lobby["cap_a"] if lobby["batting_team"] == "a" else lobby["cap_b"]
+            cap_name = await _get_name(context, chat_id, cap_id, "Captain")
+            await context.bot.send_message(chat_id, f"📣 <b>{cap_name}/Host</b>: choose next batter → /batting @user", parse_mode="HTML")
             await _check_next(chat_id, context, lobby, wicket=True)
         else:
             # Warning only (No -6 penalty)

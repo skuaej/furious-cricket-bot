@@ -1248,6 +1248,9 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 2. Check Team Match
         for chat_id, lobby in team_lobbies.items():
             if lobby.get("current_bowler") == uid and lobby.get("delivery", {}).get("status") == "waiting_bowler":
+                if not lobby.get("striker"):
+                    await update.message.reply_text("❌ Cannot bowl yet! Waiting for the batting team to choose a batter.")
+                    return
                 if num == 0:
                     await update.message.reply_text("❌ Bowler cannot pick 0! Send 1-6.")
                     return
