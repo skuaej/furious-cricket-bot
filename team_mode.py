@@ -355,7 +355,7 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lobby["phase"] = "overs"
         await query.edit_message_text(
             f"✅ Team {winner.upper()} chose to <b>{choice}</b> first!\n\n"
-            f"👋 Host, set match overs using /setovers <num>", parse_mode="HTML")
+            f"👋 Host, set match overs using /setovers [number]", parse_mode="HTML")
         return
 
     # Fallback for older buttons
