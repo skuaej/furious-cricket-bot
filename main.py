@@ -126,6 +126,12 @@ def cancel_turn_jobs(chat_id, context):
     for j in context.job_queue.get_jobs_by_name(f"bat_timeout_{chat_id}"):
         j.schedule_removal()
 
+async def voting_expired_cb(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.chat_id
+    if chat_id in play_votes:
+        del play_votes[chat_id]
+        await context.bot.send_message(chat_id, "⏰ <b>Voting Expired!</b>\nNot enough votes to start the match lobby in time.", parse_mode="HTML")
+
 async def finish_match(chat_id, context):
     """End match and show full scorecard with MOM."""
     match = await get_match(chat_id)
@@ -399,11 +405,12 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Initialize votes for this chat ONLY if not already voting
     if chat_id not in play_votes or not play_votes[chat_id]:
         play_votes[chat_id] = set()
+        context.job_queue.run_once(voting_expired_cb, 120, chat_id=chat_id, name=f"vote_expire_{chat_id}")
     
     count = len(play_votes[chat_id])
     kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
     await update.message.reply_text(
-        "🏟 <b>Match Request!</b>\n\nNeed <b>2 players</b> to vote to start the lobby.",
+        "🏟 <b>Match Request!</b>\n\nNeed <b>2 players</b> to vote to start the lobby. <i>(Expires in 2m)</i>",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
 async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -416,6 +423,8 @@ async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Only admins can use /forcestart."); return
 
     # Skip votes
+    for j in context.job_queue.get_jobs_by_name(f"vote_expire_{chat_id}"):
+        j.schedule_removal()
     if chat_id in play_votes: del play_votes[chat_id]
     
     kb = [[InlineKeyboardButton("👤 Solo Mode", callback_data="mode_solo"),
@@ -601,6 +610,8 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             count = len(play_votes[chat_id])
             
             if count >= 2:
+                for j in context.job_queue.get_jobs_by_name(f"vote_expire_{chat_id}"):
+                    j.schedule_removal()
                 if chat_id in play_votes: del play_votes[chat_id]
                 kb = [
                     [InlineKeyboardButton("👤 Solo Mode", callback_data="mode_solo"),
