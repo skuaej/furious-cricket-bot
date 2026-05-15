@@ -964,9 +964,19 @@ async def team_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def end_solo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    cm = await context.bot.get_chat_member(chat_id, uid)
-    if cm.status not in ['administrator', 'creator']:
-        await update.message.reply_text("❌ Only administrators can end the game."); return
+    
+    is_authorized = False
+    # Check if host in active lobby
+    if chat_id in active_lobbies and active_lobbies[chat_id].get("host_id") == uid:
+        is_authorized = True
+    
+    if not is_authorized:
+        cm = await context.bot.get_chat_member(chat_id, uid)
+        if cm.status in ['administrator', 'creator']:
+            is_authorized = True
+            
+    if not is_authorized:
+        await update.message.reply_text("❌ Only the host or admins can end the game."); return
 
     match = await get_match(chat_id)
     if not (match and match["match_status"] == "Live") and chat_id not in active_lobbies:
@@ -1427,6 +1437,8 @@ def main():
     app.add_handler(CommandHandler("resetover", reset_overs))
     app.add_handler(CommandHandler("endgame", end_solo_cmd))
     app.add_handler(CommandHandler("end_solo", end_solo_cmd))
+    app.add_handler(CommandHandler("wd_solo", end_solo_cmd))
+    app.add_handler(CommandHandler("wd", end_solo_cmd))
     app.add_handler(ChatMemberHandler(log_bot_add, ChatMemberHandler.MY_CHAT_MEMBER))
     app.add_handler(CommandHandler("score", unified_score))
     app.add_handler(CommandHandler("solo_score", unified_score))
@@ -1468,6 +1480,7 @@ def main():
     app.add_handler(CommandHandler("batting", batting_cmd))
     app.add_handler(CommandHandler("swap", swap))
     app.add_handler(CommandHandler("end_team", end_team))
+    app.add_handler(CommandHandler("wd_team", end_team))
     app.add_handler(CommandHandler("userinfo", userinfo))
     app.add_handler(CommandHandler("top", leaderboard))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_number))
