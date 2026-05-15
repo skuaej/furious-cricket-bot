@@ -525,7 +525,7 @@ async def score_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     HEADER_IMAGE = "https://i.ibb.co/S40hfh1v/file-00000000088c7207af8fda45c0342247.png"
     await context.bot.send_photo(chat_id, photo=HEADER_IMAGE)
-    await update.message.reply_text(msg, parse_mode="HTML")
+    await context.bot.send_message(chat_id, msg, parse_mode="HTML")
 
 
 async def _end_match(chat_id, context, lobby):

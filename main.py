@@ -786,7 +786,7 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.callback_query:
             await context.bot.send_message(chat_id, msg, parse_mode="HTML")
         else:
-            await update.message.reply_text(msg, parse_mode="HTML")
+            await context.bot.send_message(chat_id, msg, parse_mode="HTML")
     else:
         msg = "Already in lobby!"
         if update.message: await update.message.reply_text(msg)
@@ -1066,7 +1066,7 @@ async def score_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"      ╰⊚ Bat: ({bat_h})\n"
             f"      ╰⊚ Bowl: ({bowl_h})\n\n"
         )
-    await update.message.reply_text("".join(lines), parse_mode="HTML")
+    await context.bot.send_message(chat_id, "".join(lines), parse_mode="HTML")
 
 async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
