@@ -422,9 +422,12 @@ async def confirm_end_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "tclaim_host":
         lobby["host_id"] = uid
         name = html.escape(update.effective_user.first_name)
-        await query.edit_message_text(
-            f"👑 <b>{name}</b> is now the game host!\nUse /create_team to start. 🏏",
-            parse_mode="HTML")
+        text = f"👑 <b>{name}</b> is now the game host!\nUse /create_team to start. 🏏"
+        try:
+            await query.edit_message_text(text, parse_mode="HTML")
+        except:
+            try: await query.edit_message_caption(caption=text, parse_mode="HTML")
+            except: await context.bot.send_message(chat_id, text, parse_mode="HTML")
         return
 
     # Check permissions for end match
