@@ -36,7 +36,7 @@ banned_users = {}  # {user_id: unban_timestamp}
 # ─── HELPERS ───
 async def get_name(uid):
     u = await get_user(uid)
-    return u.get("username", f"Player {uid}") or f"Player {uid}"
+    return u.get("first_name") or u.get("username", f"Player {uid}") or f"Player {uid}"
 
 async def next_bowler(match):
     """Pick next bowler from lobby_players who is not the current batsman."""
@@ -177,6 +177,39 @@ async def finish_match(chat_id, context):
 
     await context.bot.send_message(chat_id, "".join(lines), parse_mode="HTML")
 
+    # Update DB Stats
+    for uid in players:
+        s = sb[str(uid)]
+        u = await get_user(uid)
+        runs = s["runs"]
+        
+        updates = {
+            "total_runs": u.get("total_runs", 0) + runs,
+            "total_balls": u.get("total_balls", 0) + s["balls_faced"],
+            "total_wickets": u.get("total_wickets", 0) + s["wickets_taken"],
+            "runs_conceded": u.get("runs_conceded", 0) + s["runs_given"],
+            "balls_bowled": u.get("balls_bowled", 0) + s["balls_bowled"],
+            "fours": u.get("fours", 0) + s["fours"],
+            "sixes": u.get("sixes", 0) + s["sixes"],
+            "matches_played": u.get("matches_played", 0) + 1,
+        }
+        
+        if runs >= 100:
+            updates["centuries"] = u.get("centuries", 0) + 1
+        elif runs >= 50:
+            updates["fifties"] = u.get("fifties", 0) + 1
+            
+        if runs == 0 and s["is_out"]:
+            updates["ducks"] = u.get("ducks", 0) + 1
+            
+        if uid == best_bat_uid:
+            updates["mom_bat"] = u.get("mom_bat", 0) + 1
+        if uid == best_bowl_uid:
+            updates["mom_bowl"] = u.get("mom_bowl", 0) + 1
+            
+        await update_user(uid, updates)
+
+
 # ─── TIMEOUT CALLBACKS ───
 async def bowl_timeout_cb(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -246,7 +279,7 @@ async def bat_timeout_cb(context: ContextTypes.DEFAULT_TYPE):
 # ─── COMMANDS ───
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    await get_user(user.id, user.username)
+    await get_user(user.id, user.username, user.first_name)
     kb = [[InlineKeyboardButton("Support 🆘", url=SUPPORT_CHAT_LINK or "https://t.me/support")]]
     await update.message.reply_text(
         f"🏏 Welcome to <b>Furious Cricket Game</b>, {html.escape(user.first_name)}!\n\n"
@@ -694,7 +727,7 @@ async def score(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     u = await get_user(uid)
-    name = html.escape(u.get("username", update.effective_user.first_name))
+    name = html.escape(u.get("first_name") or u.get("username", update.effective_user.first_name))
     import datetime
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
     

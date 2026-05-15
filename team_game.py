@@ -212,9 +212,7 @@ async def _process_ball(update, context, lobby, bat_num):
                f"🔴 Striker: {s2_name} | ⚪ Non-striker: {ns_name}")
         await context.bot.send_message(chat_id, msg, parse_mode="HTML")
         
-        # Add Thumbs Up reaction to the batter's message
-        try: await update.message.set_reaction("👍")
-        except: pass
+
 
         await _check_next(chat_id, context, lobby, wicket=False)
 
@@ -390,7 +388,7 @@ async def score_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
             s = lobby["player_stats"].get(str(pid), {})
             pname = await _get_name(context, chat_id, pid)
             csr = round((s.get("runs",0)/s.get("balls",1))*100,2) if s.get("balls",0)>0 else 0
-            bat_lines.append(f"🏏 {pname} = {s.get('runs',0)}({s.get('balls',0)})\n╬⊕(𝔹𝔹: {csr})\n")
+            bat_lines.append(f"🏏 {pname} = {s.get('runs',0)}({s.get('balls',0)})\n╰⊚(𝗖𝗦𝗥: {csr})\n")
     
     bowl_line = ""
     if bowl_id:
@@ -405,28 +403,28 @@ async def score_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
         runs_needed = target - lobby[f"team_{bat_t}_score"]["runs"]
         rrr = round(runs_needed/(balls_rem/6),2) if balls_rem>0 else 0
         target_section = (
-            f"────⟂⟂⟂────────⟁⟁⟁────\n"
-            f"🎯 <b>Target:</b> {target} Runs\n"
-            f"╬⊕ Remaining: {balls_rem} Balls ({overs}.0 ov)\n"
-            f"📈 <b>RRR:</b> {rrr}\n"
-            f"────⟂⟂⟂────────⟁⟁⟁────\n"
+            f"────┈┄┄╌╌╌╌┄┄┈────\n"
+            f"🎯 𝗧𝗮𝗿𝗴𝗲𝘁: {target} Runs\n"
+            f"╰⊚ Remaining: {balls_rem} Balls ({overs}.0 ov)\n"
+            f"📈 𝗥𝗥𝗥: {rrr}\n"
+            f"────┈┄┄╌╌╌╌┄┄┈────\n"
         )
     
     msg = (
-        f"────⟂⟂⟂────────⟁⟁⟁────\n"
-        f"𝙾𝚂𝚓𝚓𝚎𝚗𝚟 𝙻𝚎𝚂𝚚 - {bat_t.upper()}\n\n"
+        f"────┈┄┄╌╌╌╌┄┄┈────\n"
+        f"𝗕𝗮𝘁𝘁𝗶𝗻𝗴 𝗧𝗲𝗮𝗺 - {bat_t.upper()}\n\n"
         + "".join(bat_lines) +
-        f"────────────────────\n"
-        f"𝙽𝚐𝚘𝚕𝚎𝚗𝚟 𝙻𝚎𝚂𝚚 - {bowl_t.upper()}\n\n"
+        f"────┈┄┄╌╌╌╌┄┄┈────\n"
+        f"𝗕𝗼𝘄𝗹𝗶𝗻𝗴 𝗧𝗲𝗮𝗺 - {bowl_t.upper()}\n\n"
         + bowl_line +
-        f"────────────────────\n"
-        f"👥 <b>Team - A:</b> {r1}/{w1} | {b1//6}.{b1%6} ov\n╬⊕ 𝘾𝘽𝘽: {crr1:.2f}\n"
-        f"➱⋅ ──────────── ⋅➰\n"
-        f"👥 <b>Team - B:</b> {r2}/{w2} | {b2//6}.{b2%6} ov\n╬⊕ 𝘾𝘽𝘽: {crr2:.2f}\n"
-        f"────────────────────\n"
+        f"\n────┈┄┄╌╌╌╌┄┄┈────\n"
+        f"👥 𝗧𝗲𝗮𝗺 - A: {r1}/{w1} | {b1//6}.{b1%6} ov\n╰⊚ 𝗖𝗥𝗥: {crr1:.2f}\n"
+        f"⊱⋅ ──────────── ⋅⊰\n"
+        f"👥 𝗧𝗲𝗮𝗺 - B: {r2}/{w2} | {b2//6}.{b2%6} ov\n╰⊚ 𝗖𝗥𝗥: {crr2:.2f}\n"
+        f"────┈┄┄╌╌╌╌┄┄┈────\n"
         + target_section +
-        f"<b>👑 Host: {hname}</b>\n"
-        f"<b>❰ ⏳ Total Overs: {overs}</b>"
+        f"╾ ⏳ 𝗧𝗼𝘁𝗮𝗹 𝗢𝘃𝗲𝗿𝘀: {overs}\n"
+        f"╾ 📯 𝗛𝗼𝘀𝘁: {hname}"
     )
     await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -436,59 +434,87 @@ async def _end_match(chat_id, context, lobby):
     sa, sb = lobby["team_a_score"], lobby["team_b_score"]
     ra, wa, ba = sa["runs"], sa["wickets"], sa["balls"]
     rb, wb, bb = sb["runs"], sb["wickets"], sb["balls"]
-    if ra > rb: result = f"🏆 <b>Team A wins by {ra-rb} runs!</b>"
-    elif rb > ra: result = f"🏆 <b>Team B wins by {len(lobby['team_b'])-wb} wickets!</b>"
-    else: result = "🤝 <b>It's a TIE!</b>"
+    if ra > rb: result = "Team A"
+    elif rb > ra: result = "Team B"
+    else: result = "Tie"
     
-    # Detailed stats for summary
+    from telegram.helpers import create_deep_linked_url
+    bot_info = await context.bot.get_me()
+    
     lines = [
-        f"🏁 <b>MATCH OVER! Detailed Scorecard</b>\n\n",
-        f"🔵 <b>Team A: {ra}/{wa} ({ba//6}.{ba%6} ov)</b>\n"
+        f"𝑻𝒘𝒊𝒍𝒊𝒈𝒉𝒕 𝑭𝑪 𝑪𝒓𝒊𝒄𝒌𝒆𝒕 𝑩𝒐𝒕:\n",
+        f"🏆 Game #{chat_id} Results 🏆\n",
+        f"Winner: {result}\n\n"
     ]
-    for uid in lobby["team_a"]:
-        s = lobby["player_stats"].get(str(uid), {})
-        name = await _get_name(context, chat_id, uid)
-        out = "✝" if s.get("is_out") else "🏏"
-        sr = round((s.get("runs",0)/s.get("balls",1))*100,2) if s.get("balls",0)>0 else 0
-        lines.append(f"  • {name}: {s.get('runs',0)}({s.get('balls',0)}) SR:{sr} {out}\n")
     
-    lines.append(f"\n🔴 <b>Team B: {rb}/{wb} ({bb//6}.{bb%6} ov)</b>\n")
-    for uid in lobby["team_b"]:
-        s = lobby["player_stats"].get(str(uid), {})
-        name = await _get_name(context, chat_id, uid)
-        out = "✝" if s.get("is_out") else "🏏"
-        sr = round((s.get("runs",0)/s.get("balls",1))*100,2) if s.get("balls",0)>0 else 0
-        lines.append(f"  • {name}: {s.get('runs',0)}({s.get('balls',0)}) SR:{sr} {out}\n")
+    if hasattr(context.bot, "username"):
+        link = f"https://t.me/c/{str(chat_id).replace('-100', '')}/1"
+        lines.append(f"🔗 Game Link: {link}\n\n")
+        
+    lines.append("Here's the scorecard after the match:\n\n")
     
-    lines.append(f"\n🎯 <b>Bowling Figures</b>\n")
-    for uid in lobby["team_a"] + lobby["team_b"]:
-        s = lobby["player_stats"].get(str(uid), {})
-        if s.get("bowl_hist"):
-            name = await _get_name(context, chat_id, uid)
-            nb = len(s["bowl_hist"])
-            ec = round(s.get("runs_given",0)/(nb/6),2) if nb>0 else 0
-            lines.append(f"  • {name}: {s.get('wickets',0)}W-{s.get('runs_given',0)}R (Econ:{ec})\n")
-
-    lines.append(f"\n{result}\n")
-    
-    # Find MOM
-    best_b_uid, best_b_sr = None, -1.0
-    best_w_uid, best_w_ec = None, 9999.0
-    for uid_s, s in lobby["player_stats"].items():
-        sr = round((s.get("runs",0)/s.get("balls",1))*100,2) if s.get("balls",0)>0 else 0
-        nb = len(s.get("bowl_hist",[]))
-        ec = round(s.get("runs_given",0)/(nb/6),2) if nb>0 else 9999
-        if sr > best_b_sr: best_b_sr=sr; best_b_uid=int(uid_s)
-        if ec < best_w_ec: best_w_ec=ec; best_w_uid=int(uid_s)
-    bh = await _get_name(context, chat_id, best_b_uid) if best_b_uid else "N/A"
-    wh = await _get_name(context, chat_id, best_w_uid) if best_w_uid else "N/A"
-    
-    lines.append(f"\n🏆 <b>Man of the Match</b>\n")
-    lines.append(f"🏏 Batting Hero: {bh} (SR: {best_b_sr})\n")
-    lines.append(f"🎯 Bowling Hero: {wh} (Econ: {best_w_ec})")
+    # We can reuse _build_team_scoreboard logic for the final result
+    sc_lines = await _build_team_scoreboard(chat_id, context, lobby, "final")
+    lines.append(sc_lines)
     
     await context.bot.send_message(chat_id, "".join(lines), parse_mode="HTML")
     del team_lobbies[chat_id]
+    
+    # Update DB Stats
+    from database import get_user, update_user
+    for uid_s, s in lobby["player_stats"].items():
+        uid = int(uid_s)
+        u = await get_user(uid)
+        runs = s.get("runs", 0)
+        
+        updates = {
+            "total_runs": u.get("total_runs", 0) + runs,
+            "total_balls": u.get("total_balls", 0) + s.get("balls", 0),
+            "total_wickets": u.get("total_wickets", 0) + s.get("wickets", 0),
+            "runs_conceded": u.get("runs_conceded", 0) + s.get("runs_given", 0),
+            "balls_bowled": u.get("balls_bowled", 0) + len(s.get("bowl_hist", [])),
+            "fours": u.get("fours", 0) + s.get("fours", 0),
+            "sixes": u.get("sixes", 0) + s.get("sixes", 0),
+            "matches_played": u.get("matches_played", 0) + 1,
+        }
+        
+        if runs > u.get("highest_score", 0):
+            updates["highest_score"] = runs
+            updates["highest_score_balls"] = s.get("balls", 0)
+            
+        if runs >= 100:
+            updates["centuries"] = u.get("centuries", 0) + 1
+        elif runs >= 50:
+            updates["fifties"] = u.get("fifties", 0) + 1
+            
+        if runs == 0 and s.get("is_out"):
+            updates["ducks"] = u.get("ducks", 0) + 1
+            
+        # MOM check (same logic as before)
+        best_b_uid, best_b_sr = None, -1.0
+        best_w_uid, best_w_ec = None, 9999.0
+        for b_uid_s, b_s in lobby["player_stats"].items():
+            sr = round((b_s.get("runs",0)/b_s.get("balls",1))*100,2) if b_s.get("balls",0)>0 else 0
+            nb = len(b_s.get("bowl_hist",[]))
+            ec = round(b_s.get("runs_given",0)/(nb/6),2) if nb>0 else 9999
+            if sr > best_b_sr: best_b_sr=sr; best_b_uid=int(b_uid_s)
+            if ec < best_w_ec: best_w_ec=ec; best_w_uid=int(b_uid_s)
+            
+        if uid == best_b_uid:
+            updates["mom_bat"] = u.get("mom_bat", 0) + 1
+        if uid == best_w_uid:
+            updates["mom_bowl"] = u.get("mom_bowl", 0) + 1
+            
+        # Captain checks
+        is_cap_a = (uid == lobby["cap_a"])
+        is_cap_b = (uid == lobby["cap_b"])
+        if is_cap_a or is_cap_b:
+            if (is_cap_a and result == "Team A") or (is_cap_b and result == "Team B"):
+                updates["captain_wins"] = u.get("captain_wins", 0) + 1
+            elif result != "Tie":
+                updates["captain_losses"] = u.get("captain_losses", 0) + 1
+                
+        await update_user(uid, updates)
 
 async def _bowl_timeout_team(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id

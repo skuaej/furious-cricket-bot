@@ -462,8 +462,7 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         host_m = await context.bot.get_chat_member(chat_id, lobby["host_id"])
         host_name = html.escape(host_m.user.first_name)
-        host_uname = host_m.user.username
-        host_tag = f"@{host_uname}" if host_uname else host_name
+        host_tag = host_name
     except:
         host_tag = "Host"
     
@@ -472,8 +471,7 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not uid: return "Not set"
         try:
             m = await context.bot.get_chat_member(chat_id, uid)
-            uname = m.user.username
-            return f"@{uname}" if uname else html.escape(m.user.first_name)
+            return html.escape(m.user.first_name)
         except: return f"Player {uid}"
     
     cap_a = await cap_name(lobby["cap_a"])
@@ -496,8 +494,7 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i, uid in enumerate(lobby["team_a"], 1):
         try:
             m = await context.bot.get_chat_member(chat_id, uid)
-            uname = m.user.username
-            display = f"@{uname}" if uname else html.escape(m.user.first_name)
+            display = html.escape(m.user.first_name)
         except:
             display = f"Player {uid}"
         
@@ -519,8 +516,7 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i, uid in enumerate(lobby["team_b"], 1):
         try:
             m = await context.bot.get_chat_member(chat_id, uid)
-            uname = m.user.username
-            display = f"@{uname}" if uname else html.escape(m.user.first_name)
+            display = html.escape(m.user.first_name)
         except:
             display = f"Player {uid}"
         

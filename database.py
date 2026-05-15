@@ -10,19 +10,27 @@ db = client['cricket_legacy']
 users_col = db['users']
 matches_col = db['matches']
 
-async def get_user(user_id, username=None):
+async def get_user(user_id, username=None, first_name=None):
     user = await users_col.find_one({"user_id": user_id})
     if not user:
         user = {
             "user_id": user_id,
             "username": username.lower() if username else "",
+            "first_name": first_name or "",
             "total_runs": 0, "total_wickets": 0, "matches_played": 0, "wins": 0,
             "achievements": []
         }
         await users_col.insert_one(user)
-    elif username and user.get("username") != username.lower():
-        await users_col.update_one({"user_id": user_id}, {"$set": {"username": username.lower()}})
-        user["username"] = username.lower()
+    else:
+        updates = {}
+        if username and user.get("username") != username.lower():
+            updates["username"] = username.lower()
+            user["username"] = username.lower()
+        if first_name and user.get("first_name") != first_name:
+            updates["first_name"] = first_name
+            user["first_name"] = first_name
+        if updates:
+            await users_col.update_one({"user_id": user_id}, {"$set": updates})
     return user
 
 async def update_user(user_id, data):
