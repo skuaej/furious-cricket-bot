@@ -554,11 +554,16 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif d.startswith("confirm_end_"):
             await confirm_end_action(update, context)
         elif d == "vote_play":
+            # Answer instantly to stop spinner
+            try: await query.answer()
+            except: pass
+            
             uid = update.effective_user.id
             if chat_id not in play_votes: play_votes[chat_id] = set()
             
             if uid in play_votes[chat_id]:
-                await query.answer("You already voted! 🗳️", show_alert=True)
+                # Send alert via message since query is already answered
+                await context.bot.send_message(chat_id, f"⚠️ {update.effective_user.first_name}, you already voted!")
                 return
 
             play_votes[chat_id].add(uid)
@@ -566,7 +571,6 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             if count >= 2:
                 if chat_id in play_votes: del play_votes[chat_id]
-                await query.answer("✅ 2/2 Votes! Choose Mode.")
                 kb = [
                     [InlineKeyboardButton("👤 Solo Mode", callback_data="mode_solo"),
                      InlineKeyboardButton("👥 Team Mode", callback_data="mode_team")]
@@ -575,7 +579,7 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "🏁 <b>Votes Complete!</b>\nSelect your game mode to begin:",
                     reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
             else:
-                await query.answer(f"Vote registered! ({count}/2) 🏏")
+                # We already answered at the top, so we just update the button
                 kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
                 await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
 
@@ -863,6 +867,10 @@ def main():
     threading.Thread(target=run_web, daemon=True).start()
     
     app = Application.builder().token(BOT_TOKEN).build()
+    
+    # Priority 1: Callbacks (Must be fast!)
+    app.add_handler(CallbackQueryHandler(join_button))
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("play", play))
     app.add_handler(CommandHandler("forcestart", forcestart))
@@ -896,7 +904,6 @@ def main():
     app.add_handler(CommandHandler("score", score))         # solo
     app.add_handler(CommandHandler("score_team", score_team))  # team
     app.add_handler(CommandHandler("end_team", end_team))
-    app.add_handler(CallbackQueryHandler(join_button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_number))
     app.run_polling()
 
