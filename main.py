@@ -361,9 +361,12 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Use /play in a group!")
         return
     
-    # Initialize votes for this chat
-    play_votes[chat_id] = set()
-    kb = [[InlineKeyboardButton("🏏 Vote to Play (0/2)", callback_data="vote_play")]]
+    # Initialize votes for this chat ONLY if not already voting
+    if chat_id not in play_votes or not play_votes[chat_id]:
+        play_votes[chat_id] = set()
+    
+    count = len(play_votes[chat_id])
+    kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
     await update.message.reply_text(
         "🏟 <b>Match Request!</b>\n\nNeed <b>2 players</b> to vote to start the lobby.",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
@@ -459,15 +462,21 @@ async def _start_solo_lobby(update, context):
         await update.message.reply_text(
             f"🏏 <b>{html.escape(update.effective_user.first_name)}</b> wants to start a Cricket match!\n"
             f"🗳 2 votes needed to open the lobby. Vote below!",
-            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-
 async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
+    
+    m = await get_match(chat_id)
+    if m and m["match_status"] == "Live":
+        msg = "⚠️ A match is already live in this chat!"
+        if update.message: await update.message.reply_text(msg)
+        elif update.callback_query: await update.callback_query.answer(msg, show_alert=True)
+        return
+
     if chat_id not in active_lobbies:
         msg = "No active lobby. Use /play to start one."
         if update.message: await update.message.reply_text(msg)
-        elif update.callback_query: await update.callback_query.answer(msg)
+        elif update.callback_query: await update.callback_query.answer(msg, show_alert=True)
         return
         
     lobby = active_lobbies[chat_id]
@@ -490,8 +499,9 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text(msg, parse_mode="HTML")
     else:
-        if update.message:
-            await update.message.reply_text("Already in lobby!")
+        msg = "Already in lobby!"
+        if update.message: await update.message.reply_text(msg)
+        elif update.callback_query: await update.callback_query.answer(msg, show_alert=True)
         return
 
 async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -531,6 +541,7 @@ async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    # Note: We answer specific paths inside to provide custom toast messages
     chat_id = update.effective_chat.id
     d = query.data
     try:
@@ -573,14 +584,19 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif d.startswith("tend_") or d == "tclaim_host":
             await confirm_end_team(update, context)
         else:
-            # Fallback to answer any unknown queries
+            # Fallback to answer any unknown queries to stop spinner
             try: await query.answer()
             except: pass
             
     except Exception as e:
         logger.error(f"Error in join_button: {e}")
-        try: await query.answer("❌ An error occurred.", show_alert=True)
+        try: await query.answer("❌ An error occurred. Try again.", show_alert=True)
         except: pass
+    finally:
+        # Extra safety: Ensure the spinner is stopped if not answered
+        try: await query.answer()
+        except: pass
+
 
 async def endgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
