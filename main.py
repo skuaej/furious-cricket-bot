@@ -502,6 +502,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /toss - Host only: Start the match toss\n"
         "• /setovers - Host only: Set match duration\n"
         "• /resetover - Host only: Reset match settings\n"
+        "• /team_list - View team rosters and status\n"
         "• /play_team - Start the match after setup\n"
         "• /swap - Host only: Start 2nd innings\n"
         "• /end_team - Admin only: Terminate team match\n\n"
@@ -926,19 +927,11 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try: await query.answer()
         except: pass
 
-async def member_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def solo_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    # 1. Team Mode Check
-    lobby = get_lobby(chat_id)
-    if lobby:
-        from team_mode import member_list as team_member_list
-        await team_member_list(update, context)
-        return
-        
-    # 2. Solo Mode Check
     match = await get_match(chat_id)
     if not match:
-        await update.message.reply_text("No active game in this chat.")
+        await update.message.reply_text("❌ No active solo game in this chat.")
         return
         
     sb = match["scoreboard"]
@@ -957,6 +950,15 @@ async def member_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("".join(lines), parse_mode="HTML")
     try: await update.message.delete()
     except: pass
+
+async def team_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    from team_mode import member_list as team_member_list
+    lobby = get_lobby(chat_id)
+    if not lobby:
+        await update.message.reply_text("❌ No active team match in this chat.")
+        return
+    await team_member_list(update, context)
 
 async def end_solo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -1448,8 +1450,10 @@ def main():
     app.add_handler(CommandHandler("remove_cap_b", remove_cap_b))
     app.add_handler(CommandHandler("toss", toss))
     app.add_handler(CommandHandler("setovers", setovers))
-    app.add_handler(CommandHandler("member_list", member_list_cmd))
-    app.add_handler(CommandHandler("solo_list", member_list_cmd))
+    app.add_handler(CommandHandler("member_list", solo_list_cmd))
+    app.add_handler(CommandHandler("solo_list", solo_list_cmd))
+    app.add_handler(CommandHandler("team_list", team_list_cmd))
+    app.add_handler(CommandHandler("member_list_team", team_list_cmd))
     app.add_handler(CommandHandler("play_team", play_team))
     app.add_handler(CommandHandler("bowling", bowling))
     app.add_handler(CommandHandler("batting", batting_cmd))
