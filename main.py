@@ -51,7 +51,7 @@ banned_users = {}  # {user_id: unban_timestamp}
 
 # ─── HELPERS ───
 COMMENTARY = {
-    0: ["A solid defensive stroke.", "No run there, straight to the fielder.", "Dot ball! Building pressure.", "Well played, but no run.", "Deadly dot ball!", "The bowler is keeping it tight.", "Straight into the pads, no run taken.", "Beaten! That was close."],
+    0: ["A solid defensive stroke. (Dot Ball)", "No run there, straight to the fielder. (Dot Ball)", "Dot ball! Building pressure.", "Well played, but no run. (Dot Ball)", "Deadly dot ball!", "The bowler is keeping it tight. (Dot Ball)", "Straight into the pads, no run taken.", "Beaten! That was close. (Dot Ball)"],
     1: ["Just a single, keeps the strike rotating.", "Pushed into the gap for one.", "Easy run, well judged.", "A quick single taken.", "Tapped and ran for one.", "The fielder does well but they get a single.", "Just a nudge for a run.", "One run added to the total."],
     2: ["Excellent running between the wickets for two!", "Driven through the covers for a couple.", "They take two! Good hustle.", "Nicely placed for a double.", "That's two! Great work in the deep.", "Two runs! The pressure is on.", "They race back for the second run.", "Classic placement for two."],
     3: ["Superb placement! They race back for the third.", "Deep into the outfield, three runs taken.", "Magnificent running! That's three.", "They scamper through for three!", "Three runs! That's brilliant running.", "Exhausting but they got three!", "Fielding error allows a third run."],
@@ -146,8 +146,13 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         b_name = html.escape(await get_name(bowler_id))
         tag = f'<a href="tg://user?id={batsman_id}"><b>{name}</b></a>'
         comm = get_commentary(runs)
+        
+        num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣", 6: "6️⃣"}
+        b_emoji = num_emojis.get(bowler_num, str(bowler_num))
+        bt_emoji = num_emojis.get(batter_num, str(batter_num))
+        
         await context.bot.send_message(chat_id,
-            f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>{bowler_num}</b> | 🏏 BAT: <b>{batter_num}</b>\n\n"
+            f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>{b_emoji}</b> | 🏏 BAT: <b>{bt_emoji}</b>" + (f" (Dot Ball)" if runs == 0 else "") + "\n\n"
             f"🏏 {tag} scores <b>{runs}</b> runs! 👍\n"
             f"<i>{comm}</i>\n"
             f"Score: <b>{sb[bk]['runs']}</b>({sb[bk]['balls_faced']})", parse_mode="HTML")
@@ -510,7 +515,7 @@ async def _start_solo_lobby(update, context):
     uid = update.effective_user.id
     m = await get_match(chat_id)
     if (m and m["match_status"] == "Live") or chat_id in active_lobbies:
-        await query.edit_message_text("⚠️ A match or lobby is already active!")
+        await query.edit_message_text("⚠️ A match or lobby is already active! Use /end_solo or /end_team to terminate it first.")
         return
     cm = await context.bot.get_chat_member(chat_id, uid)
     is_admin = cm.status in ['administrator', 'creator']
@@ -532,7 +537,7 @@ async def _start_solo_lobby(update, context):
 
     m = await get_match(chat_id)
     if (m and m["match_status"] == "Live") or chat_id in active_lobbies:
-        await update.message.reply_text("⚠️ A match or lobby is already active!")
+        await update.message.reply_text("⚠️ A match or lobby is already active! Use /end_solo or /end_team to terminate it first.")
         return
 
     cm = await context.bot.get_chat_member(chat_id, uid)
@@ -568,7 +573,7 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     m = await get_match(chat_id)
     if m and m["match_status"] == "Live":
-        msg = "⚠️ A match is already live in this chat!"
+        msg = "⚠️ A match is already live in this chat! Use /end_solo or /end_team to terminate it first."
         if update.message: await update.message.reply_text(msg)
         return
     
@@ -1157,6 +1162,7 @@ def main():
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("play", play))
+    app.add_handler(CommandHandler("join", joingame))
     app.add_handler(CommandHandler("forcestart", forcestart))
     app.add_handler(CommandHandler("joingame", joingame))
     app.add_handler(CommandHandler("help", help_cmd))

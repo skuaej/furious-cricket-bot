@@ -12,7 +12,7 @@ async def _get_name(context, chat_id, uid, default="Player"):
     except: return default
 
 COMMENTARY = {
-    0: ["A solid defensive stroke.", "No run there, straight to the fielder.", "Dot ball! Building pressure.", "Well played, but no run.", "Deadly dot ball!", "The bowler is keeping it tight.", "Straight into the pads, no run taken.", "Beaten! That was close."],
+    0: ["A solid defensive stroke. (Dot Ball)", "No run there, straight to the fielder. (Dot Ball)", "Dot ball! Building pressure.", "Well played, but no run. (Dot Ball)", "Deadly dot ball!", "The bowler is keeping it tight. (Dot Ball)", "Straight into the pads, no run taken.", "Beaten! That was close. (Dot Ball)"],
     1: ["Just a single, keeps the strike rotating.", "Pushed into the gap for one.", "Easy run, well judged.", "A quick single taken.", "Tapped and ran for one.", "The fielder does well but they get a single.", "Just a nudge for a run.", "One run added to the total."],
     2: ["Excellent running between the wickets for two!", "Driven through the covers for a couple.", "They take two! Good hustle.", "Nicely placed for a double.", "That's two! Great work in the deep.", "Two runs! The pressure is on.", "They race back for the second run.", "Classic placement for two."],
     3: ["Superb placement! They race back for the third.", "Deep into the outfield, three runs taken.", "Magnificent running! That's three.", "They scamper through for three!", "Three runs! That's brilliant running.", "Exhausting but they got three!", "Fielding error allows a third run."],
@@ -199,9 +199,12 @@ async def _process_ball(update, context, lobby, bat_num):
     lobby["balls_in_over"] += 1
     s_name = await _get_name(context, chat_id, sid, "Batter")
     b_name = await _get_name(context, chat_id, bid, "Bowler")
+    num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣", 6: "6️⃣"}
+    b_emoji = num_emojis.get(bowl_num, str(bowl_num))
+    bt_emoji = num_emojis.get(bat_num, str(bat_num))
 
     # Header like solo
-    header = f"<b>{s_name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>{bowl_num}</b> | 🏏 BAT: <b>{bat_num}</b>\n\n"
+    header = f"<b>{s_name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>{b_emoji}</b> | 🏏 BAT: <b>{bt_emoji}</b>" + (f" (Dot Ball)" if bat_num == 0 else "") + "\n\n"
 
     if bowl_num == bat_num:
         bs["bat_hist"].append("W"); bs["is_out"] = True
