@@ -166,7 +166,7 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         sb[bwk]["runs_given"] += runs
         if runs == 4:
             sb[bk]["fours"] += 1
-        elif runs == 5:
+        elif runs == 6:
             sb[bk]["sixes"] += 1
 
         upd = {"scoreboard": sb, "batter_timeout_count": 0,
@@ -179,20 +179,30 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         tag = f'<a href="tg://user?id={batsman_id}"><b>{name}</b></a>'
         comm = get_commentary(runs)
         
-        num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣"}
-        bt_emoji = num_emojis.get(batter_num, str(batter_num))
-        
-        # Bowler number is hidden in the result header as requested
-        # Improved formatting for boundaries
-        run_label = " (Dot Ball)" if runs == 0 else ("🔥 FOUR! " if runs == 4 else ("🏆 FIVE! " if runs == 5 else ""))
+        # Improved formatting
+        run_label = " (Dot Ball)" if runs == 0 else ("🔥 <b>FOUR!</b> " if runs == 4 else ("🏆 <b>SIX!</b> " if runs == 6 else ""))
         run_text = "" if runs >= 4 else f" scores <b>{runs} runs!</b>"
+        num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣", 6: "6️⃣"}
+        bt_emoji = num_emojis.get(batter_num, str(batter_num))
         await context.bot.send_message(chat_id,
-            f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>❓</b> | 🏏 BAT: <b>{bt_emoji}</b>{' (Dot Ball)' if runs == 0 else ''}\n\n"
+            f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>❓</b> | 🏏 BAT: <b>{bt_emoji}</b>\n\n"
+            f"━━━━━━━━━━━━━━━\n"
             f"{run_label}🏏 {tag}{run_text} 👍\n"
+            f"━━━━━━━━━━━━━━━\n"
             f"<i>{comm}</i>\n"
             f"Score: <b>{sb[bk]['runs']}</b>({sb[bk]['balls_faced']})", parse_mode="HTML")
         cancel_turn_jobs(chat_id, context)
-        await notify_turn(chat_id, batsman_id, bowler_id, context)
+        
+        # Bowler Rotation: every 3 balls in solo
+        if sb[bwk]["bowl_count_this_turn"] >= 3:
+            sb[bwk]["bowl_count_this_turn"] = 0
+            nb, ni = await next_bowler({"lobby_players": match["lobby_players"], "current_batsman": batsman_id,
+                "bowler_index": match.get("bowler_index", 1)})
+            await update_match(chat_id, {"current_bowler": nb, "bowler_index": ni, "scoreboard": sb})
+            await context.bot.send_message(chat_id, f"🔄 <b>Bowler Rotation!</b> New bowler is coming in...")
+            await notify_turn(chat_id, batsman_id, nb, context)
+        else:
+            await notify_turn(chat_id, batsman_id, bowler_id, context)
 
 def cancel_turn_jobs(chat_id, context):
     for j in context.job_queue.get_jobs_by_name(f"bowl_timeout_{chat_id}"):
@@ -229,8 +239,8 @@ async def finish_match(chat_id, context):
         econ = round(s["runs_given"] / (s["balls_bowled"] / 6), 2) if s["balls_bowled"] > 0 else 0
         dot = state_emojis[idx % len(state_emojis)]
         lines.append(
-            f"{idx}. {dot} {name} = {s['runs']}({s['balls_faced']})\n"
-            f"    ╰⊚ 4️⃣s: {s['fours']:02d}, 6️⃣s: {s['sixes']:02d} - ID: {uid}\n"
+            f"{idx}. {dot} {name} = <b>{s['runs']}</b>({s['balls_faced']})\n"
+            f"    ╰⊚ 4️⃣s: <b>{s['fours']:02d}</b>, 6️⃣s: <b>{s['sixes']:02d}</b> - ID: <code>{uid}</code>\n"
             f"      ╰⊚ Bat: ({bat_hist})\n"
             f"      ╰⊚ Bowl: ({bowl_hist})\n\n"
         )
@@ -305,7 +315,7 @@ async def bowl_timeout_cb(context: ContextTypes.DEFAULT_TYPE):
     # Notify batter
     batsman = await get_user(match["current_batsman"])
     await context.bot.send_message(chat_id,
-        f"⚾️ <b>Ball Delivered (Auto)!</b>\n🏏 Batter <a href='tg://user?id={match['current_batsman']}'>{html.escape(batsman['username'])}</a>, send your shot (1-6)!",
+        f"⚾️ <b>Ball Delivered (Auto)!</b>\n🏏 Batter <a href='tg://user?id={match['current_batsman']}'>{html.escape(batsman.get('first_name', 'Batter'))}</a>, send your shot (0-6)!",
         parse_mode="HTML")
     # Start batter timeout
     context.job_queue.run_once(bat_timeout_cb, 60, chat_id=chat_id, name=f"bat_timeout_{chat_id}")
@@ -342,16 +352,9 @@ async def bat_timeout_cb(context: ContextTypes.DEFAULT_TYPE):
         await update_match(chat_id, {"current_batsman": nxt, "current_bowler": nb, "bowler_index": ni})
         await notify_turn(chat_id, nxt, nb, context)
     else:
-        # 1st timeout: Penalty -6
-        sb[bk]["runs"] -= 6
-        sb[bk]["bat_history"].append(-6)
-        tc += 1
-        await update_match(chat_id, {"scoreboard": sb, "batter_timeout_count": tc,
-            "current_delivery": {"bowler_num": None, "status": "waiting_bowler"}})
-        await context.bot.send_message(chat_id,
-            f"⏰ <b>{name} timeout!</b> Penalty: <b>-6 runs</b> (1/2 warnings)", parse_mode="HTML")
-        cancel_turn_jobs(chat_id, context)
-        await notify_turn(chat_id, batsman_id, match["current_bowler"], context)
+        # Final timeout: Auto bat (0-6)
+        auto = random.randint(0, 6)
+        await process_ball(chat_id, match["current_delivery"]["bowler_num"], auto, context, match, is_auto_bowl=False)
 
 # ─── COMMANDS ───
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -481,11 +484,13 @@ async def notify_turn(chat_id, batsman_id, bowler_id, context):
     await context.bot.send_message(chat_id,
         f"🏏 👉 {bat_tag} is batting\n"
         f"⚾ 👉 {bowl_tag} is bowling\n\n"
-        f"🔢 Bowler, click below to deliver the ball in DM!",
+        f"🔢 Bowler, send a number <b>1-6</b> in DM!",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
     try:
         await context.bot.send_message(bowler_id,
-            f"⚾ <b>YOUR TURN TO BOWL!</b>\n\nBatter: {bat_name}\nSend a number 0–5 in this chat.", parse_mode="HTML")
+            f"⚾ <b>YOUR TURN TO BOWL!</b>\n\n"
+            f"Batter: {bat_name}\n"
+            f"Send a number <b>1–6</b> in this chat.", parse_mode="HTML")
     except Exception:
         await context.bot.send_message(chat_id,
             f"⚠️ Could not DM {bowl_tag}. Tell them to start the bot in PM first!",
@@ -928,8 +933,8 @@ async def score_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             dot = state_emojis[idx % len(state_emojis)]
 
         lines.append(
-            f"{idx}. {dot} {n} = {s['runs']}({s['balls_faced']})\n"
-            f"    ╰⊚ 4️⃣s: {s['fours']:02d}, 5️⃣s: {s['sixes']:02d} - ID: {uid}\n"
+            f"{idx}. {dot} {n} = <b>{s['runs']}</b>({s['balls_faced']})\n"
+            f"    ╰⊚ 4️⃣s: <b>{s['fours']:02d}</b>, 6️⃣s: <b>{s['sixes']:02d}</b> - ID: <code>{uid}</code>\n"
             f"      ╰⊚ Bat: ({bat_h})\n"
             f"      ╰⊚ Bowl: ({bowl_h})\n\n"
         )
@@ -969,15 +974,15 @@ async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = [
         f"🏏 <b>Stats Summary</b>\n",
         f"👤 User: {name}\n",
-        f"🆔 User ID: {uid}\n",
+        f"🆔 User ID: <code>{uid}</code>\n",
         f"📅 Date: {date_str}\n",
         f"─────⊱◈◈◈⊰─────\n",
-        f"🏆 Highest Score: {hs}({hs_b} Balls)\n",
+        f"🏆 Highest Score: <b>{hs}</b>({hs_b} Balls)\n",
         f"🎮 Best Game Host: {u.get('host_count', 0)}\n",
-        f"📊 Runs: {runs} ({balls})\n",
-        f"🎯 Wickets: {wkts}\n",
-        f"🎯 Fives: {sixes}\n",
-        f"✨ Fours: {fours}\n",
+        f"📊 Runs: <b>{runs}</b> ({balls})\n",
+        f"🎯 Wickets: <b>{wkts}</b>\n",
+        f"✨ Fours: <b>{fours}</b>\n",
+        f"🚀 Sixes: <b>{sixes}</b>\n",
         f"🔥 Centuries: {cents}\n",
         f"⭐ Fifties: {fifs}\n",
         f"🦆 Ducks: {ducks}\n",
@@ -1072,7 +1077,7 @@ async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
-    if text not in ["0", "1", "2", "3", "4", "5"]:
+    if text not in ["0", "1", "2", "3", "4", "5", "6"]:
         return
     num = int(text)
     uid = update.effective_user.id
@@ -1098,7 +1103,7 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 bat_name = html.escape(await get_name(match["current_batsman"]))
                 await context.bot.send_message(match["match_id"],
                     f"⚾️ <b>Ball Delivered!</b>\n🏏 <a href='tg://user?id={match['current_batsman']}'>"
-                    f"{bat_name}</a>, send your shot (0-5)!", parse_mode="HTML")
+                    f"{bat_name}</a>, send your shot (0-6)!", parse_mode="HTML")
                 context.job_queue.run_once(bat_timeout_cb, 60, chat_id=match["match_id"],
                     name=f"bat_timeout_{match['match_id']}")
                 return
@@ -1125,7 +1130,7 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 await context.bot.send_message(chat_id,
                     f"⚾ <b>Ball delivered!</b>\n"
-                    f"🏏 👍 <a href='tg://user?id={sid}'>{s_name}</a>, send your shot (0-5) within 1 minute!",
+                    f"🏏 👍 <a href='tg://user?id={sid}'>{s_name}</a>, send your shot (0-6) within 1 minute!",
                     parse_mode="HTML")
                 context.job_queue.run_once(_bat_timeout_team, 30, chat_id=chat_id, data={"time_left": 60}, name=f"tbat_{chat_id}")
                 return
@@ -1135,17 +1140,18 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     else:
         try:
-            # BATTER sends shot in group - check solo then team
             chat_id = update.effective_chat.id
-            # Try team mode first
             if get_lobby(chat_id):
-                # team numbers: 0-5
-                if text not in ["0","1","2","3","4","5"]:
-                    return
-                if await handle_team_number(update, context):
-                    return
+                if text not in ["1","2","3","4","5","6"]: return
+                if await handle_team_number(update, context): return
             match = await get_match(chat_id)
-            if not match or match["match_status"] != "Live":
+            if not match or match["match_status"] != "Live": return
+            if text not in ["0","1","2","3","4","5","6"]: return
+            num = int(text)
+            if match["current_delivery"]["status"] == "waiting_bowler":
+                if num == 0:
+                    await update.message.reply_text("❌ Bowler cannot pick 0! Send 1-6.")
+                    return
                 return
             if match["current_batsman"] != uid:
                 if match["current_bowler"] == uid:

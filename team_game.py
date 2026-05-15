@@ -245,9 +245,10 @@ async def _process_ball(update, context, lobby, bat_num):
         s_tag = f'<a href="tg://user?id={sid}"><b>{s_name}</b></a>'
         emoji = "🔵" if lobby["batting_team"] == "a" else "🔴"
         comm = get_commentary(runs)
-        run_label = "" if runs == 0 else ("🔥 FOUR! " if runs == 4 else ("🏆 FIVE! " if runs == 5 else ""))
+        run_label = "" if runs == 0 else ("🔥 <b>FOUR!</b> " if runs == 4 else ("🏆 <b>SIX!</b> " if runs == 6 else ""))
         run_text = "" if runs >= 4 else f" scores <b>{runs} runs!</b>"
         msg = (f"{header}{emoji} {run_label}{s_tag}{run_text} 👍\n"
+               f"━━━━━━━━━━━━━━━\n"
                f"<i>{comm}</i>\n"
                f"{' 🔄 Strike rotated!' if rotate else ''}\n"
                f"Score: <b>{r}/{w}</b> ({b//6}.{b%6} ov)\n"
@@ -584,8 +585,8 @@ async def _bowl_timeout_team(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id, f"⏳ <b>Bowler Timeout:</b> {time_left}s left!", parse_mode="HTML")
         context.job_queue.run_once(_bowl_timeout_team, next_time, chat_id=chat_id, data={"time_left": time_left - next_time}, name=f"tbowl_{chat_id}")
     else:
-        # Final timeout: Auto ball
-        auto = random.randint(0, 5)
+        # Final timeout: Auto ball (1-6)
+        auto = random.randint(1, 6)
         lobby["delivery"]["bowler_num"] = auto
         lobby["delivery"]["status"] = "waiting_batter"
         
@@ -593,7 +594,7 @@ async def _bowl_timeout_team(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(bid, 
                 f"⚾ <b>YOUR TURN TO BOWL (Team Match)!</b>\n"
                 f"Batter: {s_name}\n"
-                f"Send a number 0–5 in this chat.", parse_mode="HTML")
+                f"Send a number <b>1–6</b> in this chat.", parse_mode="HTML")
         except: pass
         
         await context.bot.send_message(chat_id,
@@ -635,5 +636,5 @@ async def _bat_timeout_team(context: ContextTypes.DEFAULT_TYPE):
             lobby["batter_warnings"] = warns + 1
             lobby["delivery"] = {"bowler_num":None,"status":"waiting_bowler"}
             await context.bot.send_message(chat_id,
-                f"⏰ <b>{s_name} timeout!</b> -6 penalty ({warns+1}/2 warnings)", parse_mode="HTML")
+                f"⏰ <b>{s_name} timeout!</b> -5 penalty ({warns+1}/2 warnings)", parse_mode="HTML")
             await _announce_crease(chat_id, context, lobby)
