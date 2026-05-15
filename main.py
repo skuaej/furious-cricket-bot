@@ -1208,6 +1208,7 @@ async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
+    # 1. Basic validation (0-6 allowed for both roles initially)
     if text not in ["0", "1", "2", "3", "4", "5", "6"]:
         return
     num = int(text)
@@ -1220,6 +1221,9 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if match:
             delivery = match.get("current_delivery", {"status": "waiting_bowler"})
             if delivery.get("status") == "waiting_bowler":
+                if num == 0:
+                    await update.message.reply_text("❌ Bowler cannot pick 0! Send 1-6.")
+                    return
                 cancel_turn_jobs(match["match_id"], context)
                 await update_match(match["match_id"], {
                     "current_delivery.bowler_num": num, "current_delivery.status": "waiting_batter"})
@@ -1242,6 +1246,9 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 2. Check Team Match
         for chat_id, lobby in team_lobbies.items():
             if lobby.get("current_bowler") == uid and lobby.get("delivery", {}).get("status") == "waiting_bowler":
+                if num == 0:
+                    await update.message.reply_text("❌ Bowler cannot pick 0! Send 1-6.")
+                    return
                 _cancel_team_jobs(chat_id, context)
                 lobby["delivery"]["bowler_num"] = num
                 lobby["delivery"]["status"] = "waiting_batter"
@@ -1273,7 +1280,8 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             chat_id = update.effective_chat.id
             if get_lobby(chat_id):
-                if text not in ["1","2","3","4","5","6"]: return
+                # Batter in Team Mode can send 0-6
+                if text not in ["0","1","2","3","4","5","6"]: return
                 if await handle_team_number(update, context): return
             match = await get_match(chat_id)
             if not match or match["match_status"] != "Live": return
