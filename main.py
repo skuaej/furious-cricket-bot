@@ -930,7 +930,7 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def solo_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     match = await get_match(chat_id)
-    if not match:
+    if not match or match.get("match_status") == "Ended":
         await update.message.reply_text("❌ No active solo game in this chat.")
         return
         
