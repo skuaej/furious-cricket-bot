@@ -329,14 +329,14 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Handle Batting/Bowling selection (triggered by /toss result buttons)
     if query.data in ["toss_bat", "toss_bowl"]:
-        if uid != lobby["host_id"]:
-            try: await query.answer("❌ Only the Host can choose the preference!", show_alert=True)
-            except: pass
-            return
-            
         winner = lobby.get("toss_winner")
         if not winner:
             try: await query.answer("❌ Toss data missing. Use /toss.", show_alert=True)
+            except: pass
+            return
+
+        if uid != lobby[f"cap_{winner}"] and uid != lobby["host_id"]:
+            try: await query.answer("❌ Only the Winning Captain or Host can choose!", show_alert=True)
             except: pass
             return
             
