@@ -341,29 +341,27 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
         "🏆 <b>Furious Cricket Game - Help Menu</b> 🏆\n\n"
         "🏏 <b>SOLO MODE COMMANDS:</b>\n"
-        "• /play - Start a solo game (requires 2 votes)\n"
+        "• /play - Start a 2-vote request to open a solo lobby\n"
         "• /joingame - Join an active solo match\n"
         "• /forcestart - Admin only: Start game immediately\n"
         "• /score - View live solo scoreboard\n"
+        "• /member_list - View players and status\n"
         "• /userinfo - View your global career stats\n"
-        "• /endgame - Admin only: Terminate current game\n\n"
+        "• /end_solo - Admin only: Terminate current solo game\n\n"
         "👥 <b>TEAM MODE COMMANDS:</b>\n"
-        "• /play_team - Create a team match lobby\n"
-        "• /claim_host - Claim host rights (if no host)\n"
-        "• /create_team - Host only: Open team registration\n"
+        "• /create_team - Create a team match lobby\n"
         "• /join_teamA / /join_teamB - Join a team\n"
-        "• /add_a / /add_b - Host only: Add players (ID/Name/Index)\n"
-        "• /remove_a / /remove_b - Host only: Remove players\n"
-        "• /addcap_a / /addcap_b - Host only: Set team captains\n"
+        "• /add_a / /add_b - Host/Admin: Add players\n"
+        "• /remove_a / /remove_b - Host/Admin: Remove players\n"
         "• /toss - Host only: Start the match toss\n"
         "• /setovers - Host only: Set match duration\n"
-        "• /hostchange - Host/Admin: Change the match host\n"
-        "• /reset_over - Host only: Reset overs before starting\n"
-        "• /batting - Captain/Host: Select striker/non-striker\n"
-        "• /bowling - Captain/Host: Select next bowler\n"
-        "• /score_team - View live team scoreboard\n"
-        "• /member - View all team members and indices\n"
-        "• /end_team - Host only: Terminate team match\n"
+        "• /play_team - Start the match after setup\n"
+        "• /swap - Host only: Start 2nd innings\n"
+        "• /end_team - Admin only: Terminate team match\n\n"
+        "📊 <b>ADMIN COMMANDS:</b>\n"
+        "• /stats - Owner/Sudo: View bot analytics\n"
+        "• /broadcast - Owner/Sudo: Message all users\n"
+        "• /addsudo / /rmsudo - Owner only: Manage admins"
     )
     await update.message.reply_text(help_text, parse_mode="HTML")
 
@@ -717,14 +715,12 @@ async def member_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text("".join(lines), parse_mode="HTML")
 
-
-async def endgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def end_solo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
     cm = await context.bot.get_chat_member(chat_id, uid)
     if cm.status not in ['administrator', 'creator']:
-        await update.message.reply_text("❌ Only administrators can end the game.")
-        return
+        await update.message.reply_text("❌ Only administrators can end the game."); return
 
     keyboard = [
         [
@@ -734,10 +730,12 @@ async def endgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "❓ <b>Are you sure you want to end the game?</b>\nThis will cancel the lobby or the active match.",
+        "❓ <b>Are you sure you want to end the solo game?</b>\nThis will cancel the lobby or the active match.",
         reply_markup=reply_markup,
         parse_mode="HTML"
     )
+
+
 
 async def confirm_end_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1128,7 +1126,8 @@ def main():
     app.add_handler(CommandHandler("joingame", joingame))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("reset_over", reset_overs))
-    app.add_handler(CommandHandler("endgame", endgame))
+    app.add_handler(CommandHandler("endgame", end_solo_cmd))
+    app.add_handler(CommandHandler("end_solo", end_solo_cmd))
     app.add_handler(ChatMemberHandler(log_bot_add, ChatMemberHandler.MY_CHAT_MEMBER))
     app.add_handler(CommandHandler("score", unified_score))
     app.add_handler(CommandHandler("userinfo", userinfo))
