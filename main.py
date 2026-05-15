@@ -472,20 +472,17 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if m and m["match_status"] == "Live":
         msg = "⚠️ A match is already live in this chat!"
         if update.message: await update.message.reply_text(msg)
-        elif update.callback_query: await update.callback_query.answer(msg, show_alert=True)
         return
-
+    
     if chat_id not in active_lobbies:
         msg = "No active lobby. Use /play to start one."
         if update.message: await update.message.reply_text(msg)
-        elif update.callback_query: await update.callback_query.answer(msg, show_alert=True)
         return
         
     lobby = active_lobbies[chat_id]
     if not lobby.get("open", False):
         msg = "Lobby is not open yet. Need more votes!"
         if update.message: await update.message.reply_text(msg)
-        elif update.callback_query: await update.callback_query.answer(msg)
         return
 
     if user.id not in lobby["players"]:
@@ -496,7 +493,6 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         count = len(lobby["players"])
         msg = f"✅ <b>{html.escape(user.first_name)}</b> joined! ({count} player{'s' if count > 1 else ''} in lobby)"
         if update.callback_query:
-            await update.callback_query.answer("Joined!")
             await context.bot.send_message(chat_id, msg, parse_mode="HTML")
         else:
             await update.message.reply_text(msg, parse_mode="HTML")
@@ -511,13 +507,13 @@ async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
     if chat_id not in active_lobbies:
-        await q.answer("Lobby gone."); return
+        return # already answered at top
     lobby = active_lobbies[chat_id]
     
     # Handle both Opening lobby and Starting match votes
     if q.data == "vote_open_lobby":
         if uid in lobby["votes"]:
-            await q.answer("Already voted!"); return
+            return # already answered at top
         lobby["votes"].append(uid)
         cv = len(lobby["votes"])
         if cv >= 2:
@@ -543,7 +539,10 @@ async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    # Note: We answer specific paths inside to provide custom toast messages
+    # Answer EVERYTHING instantly at the very start
+    try: await query.answer()
+    except: pass
+    
     chat_id = update.effective_chat.id
     d = query.data
     try:
@@ -554,17 +553,12 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif d.startswith("confirm_end_"):
             await confirm_end_action(update, context)
         elif d == "vote_play":
-            # Answer instantly to stop spinner
-            try: await query.answer()
-            except: pass
-            
+            # ALREADY ANSWERED AT TOP
             uid = update.effective_user.id
             if chat_id not in play_votes: play_votes[chat_id] = set()
             
             if uid in play_votes[chat_id]:
-                # Send alert via message since query is already answered
-                await context.bot.send_message(chat_id, f"⚠️ {update.effective_user.first_name}, you already voted!")
-                return
+                return # Already answered at top
 
             play_votes[chat_id].add(uid)
             count = len(play_votes[chat_id])
@@ -905,7 +899,7 @@ def main():
     app.add_handler(CommandHandler("score_team", score_team))  # team
     app.add_handler(CommandHandler("end_team", end_team))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_number))
-    app.run_polling()
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
