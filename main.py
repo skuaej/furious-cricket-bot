@@ -462,6 +462,8 @@ async def _start_solo_lobby(update, context):
         await update.message.reply_text(
             f"🏏 <b>{html.escape(update.effective_user.first_name)}</b> wants to start a Cricket match!\n"
             f"🗳 2 votes needed to open the lobby. Vote below!",
+            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+
 async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
