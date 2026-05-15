@@ -21,7 +21,7 @@ def _new_lobby(host_id):
         "team_b_score": {"runs": 0, "wickets": 0, "balls": 0},
         "player_stats": {},
         "delivery": {"bowler_num": None, "status": "waiting_bowler"},
-        "batter_warnings": 0, "dismissed": [],
+        "batter_warnings": 0, "bowler_warnings": 0, "dismissed": [],
     }
 
 def _init_player(lobby, uid, username=None, first_name=None):
@@ -369,7 +369,7 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
             s = lobby["player_stats"].get(str(uid), {})
             display = html.escape(s.get("first_name", f"Player {uid}"))
             cap_mark = " (C) 👑" if uid == lobby[f"cap_{team}"] else ""
-            status = "❌ (Out)" if s.get("is_out") else "✅ (Not Out)"
+            status = "❌" if s.get("is_out") else "✅"
             if uid == lobby["striker"]:
                 status += " 🏏"
             elif uid == lobby["current_bowler"]:

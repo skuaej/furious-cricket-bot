@@ -87,6 +87,7 @@ async def create_match(match_id, lobby_players):
             "status": "waiting_bowler"
         },
         "batter_timeout_count": 0,  # consecutive timeouts for current batter
+        "bowler_timeout_count": 0,  # consecutive timeouts for current bowler
     }
     # Remove old match for this chat if any
     await matches_col.delete_many({"match_id": match_id})
