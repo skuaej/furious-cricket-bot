@@ -12,6 +12,7 @@ from team_mode import (
     remove_from_a, remove_from_b,
     addcap_a, addcap_b, remove_cap_a, remove_cap_b,
     toss, toss_choice, setovers, member_list,
+    vote4host_change,
     end_team, confirm_end_team, _new_lobby
 )
 from team_game import (
@@ -404,6 +405,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /add_a / /add_b - Host/Admin: Add players\n"
         "• /remove_a / /remove_b - Host/Admin: Remove players\n"
         "• /hostchange - Host: Transfer game host\n"
+        "• /vote4host_change - Vote for host change (2 votes)\n"
         "• /toss - Host only: Start the match toss\n"
         "• /setovers - Host only: Set match duration\n"
         "• /resetover - Host only: Reset match settings\n"
@@ -1320,6 +1322,7 @@ def main():
     app.add_handler(CommandHandler("rmsudo", rm_sudo))
     # Team mode commands
     app.add_handler(CommandHandler("hostchange", hostchange))
+    app.add_handler(CommandHandler("vote4host_change", vote4host_change))
     app.add_handler(CommandHandler("create_team", create_team))
     app.add_handler(CommandHandler("join_teamA", join_team_a))
     app.add_handler(CommandHandler("join_teamB", join_team_b))

@@ -618,6 +618,46 @@ async def confirm_end_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML")
         return
 
+async def hostchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    uid = update.effective_user.id
+    lobby = get_lobby(chat_id)
+    if not lobby:
+        await update.message.reply_text("❌ No active team match."); return
+    if lobby["host_id"] != uid:
+        await update.message.reply_text("❌ Only the host can transfer host status."); return
+    
+    # Simple direct claim logic for now if no target specified
+    kb = [[InlineKeyboardButton("👑 Claim Host", callback_data="tclaim_host")]]
+    await update.message.reply_text("👑 <b>Host Transfer!</b> Click below to claim the host position:", reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
+
+async def vote4host_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    uid = update.effective_user.id
+    lobby = get_lobby(chat_id)
+    if not lobby:
+        await update.message.reply_text("❌ No active team match."); return
+    
+    if "host_votes" not in lobby: lobby["host_votes"] = set()
+    lobby["host_votes"].add(uid)
+    
+    count = len(lobby["host_votes"])
+    if count >= 2:
+        lobby["host_votes"] = set() # Reset
+        kb = [[InlineKeyboardButton("👑 Claim Host", callback_data="tclaim_host")]]
+        await update.message.reply_text(
+            "🗳 <b>Votes Complete!</b>\nThe host position is now open for anyone to claim.",
+            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    else:
+        await update.message.reply_text(
+            f"🗳 <b>Host Change Vote ({count}/2)</b>\nNeed 1 more vote to open the host position.",
+            parse_mode="HTML")
+    
+    try: await update.message.delete()
+    except: pass
+
     if lobby["host_id"] != uid:
         cm = await context.bot.get_chat_member(chat_id, uid)
         if cm.status not in ['administrator', 'creator']:
