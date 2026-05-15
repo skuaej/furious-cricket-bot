@@ -303,7 +303,7 @@ async def toss(update: Update, context: ContextTypes.DEFAULT_TYPE):
            InlineKeyboardButton("⚾ Bowling", callback_data="toss_bowl")]]
     await update.message.reply_text(
         f"🪙 <b>Toss Result:</b> Team {winner.upper()} won the toss!\n\n"
-        f"👑 <a href='tg://user?id={cap_id}'>{cap_name}</a>, choose your preference:",
+        f"👑 <b>Host</b> or <a href='tg://user?id={cap_id}'><b>Captain</b></a>, choose preference:",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
     try: await update.message.delete()
     except: pass
@@ -313,13 +313,19 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
     lobby = get_lobby(chat_id)
-    if not lobby or lobby["phase"] != "toss_choice": return
+    if not lobby or lobby["phase"] != "toss_choice":
+        try: await query.answer()
+        except: pass
+        return
     
     winner = lobby["toss_winner"]
     if uid != lobby[f"cap_{winner}"] and uid != lobby["host_id"]:
-        try: await query.answer("Only the winning captain or the host can choose!", show_alert=True)
+        try: await query.answer("Only the winning captain or host can choose!", show_alert=True)
         except: pass
         return
+    
+    try: await query.answer()
+    except: pass
         
     choice = "batting" if query.data == "toss_bat" else "bowling"
     if choice == "batting":
