@@ -320,25 +320,26 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    lobby = get_lobby(chat_id)
+    lobby = team_lobbies.get(chat_id)
     
     if not lobby:
-        try: await query.answer("❌ No active lobby found. Please use /play to start a new game.", show_alert=True)
+        try: await query.answer("❌ No active lobby found. Use /play.", show_alert=True)
         except: pass
         return
 
-    # Handle Batting/Bowling selection (triggered by /toss result buttons)
+    # Handle Batting/Bowling selection
     if query.data in ["toss_bat", "toss_bowl"]:
-        winner = lobby.get("toss_winner")
-        if not winner:
-            try: await query.answer("❌ Toss data missing. Use /toss.", show_alert=True)
-            except: pass
-            return
-
-        if uid != lobby["host_id"]:
+        # Use int() to ensure comparison works
+        if int(uid) != int(lobby["host_id"]):
             try: await query.answer("❌ Only the Host can choose the preference!", show_alert=True)
             except: pass
             return
+            
+        winner = lobby.get("toss_winner")
+        if not winner:
+            # Fallback if toss data was lost
+            winner = random.choice(["a", "b"])
+            lobby["toss_winner"] = winner
             
         try: await query.answer()
         except: pass
