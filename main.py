@@ -64,6 +64,16 @@ COMMENTARY = {
     "W": ["BOWLED HIM! A massive breakthrough! ☝️", "OUT! The finger goes up!", "WICKET! A huge blow for the batting side!", "Caught! That's the end of the innings for him.", "Stunned silence! He's out.", "Big wicket! The bowler is delighted.", "A perfect delivery! Out!", "The stumps are rattled! He's gone."]
 }
 
+async def edit_any(query, text, kb=None):
+    """Helper to edit either a text message or a photo caption."""
+    try:
+        await query.edit_message_caption(caption=text, reply_markup=kb, parse_mode="HTML")
+    except:
+        try:
+            await query.edit_message_text(text=text, reply_markup=kb, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Failed to edit message: {e}")
+
 def get_commentary(num):
     return random.choice(COMMENTARY.get(num, ["Nice shot!"]))
 
@@ -508,15 +518,12 @@ async def play_mode_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _start_solo_lobby(update, context, voters=voters)
     elif query.data == "mode_team":
         if chat_id in team_lobbies:
-            await query.edit_message_text("⚠️ A team session is already active!")
+            await edit_any(query, "⚠️ A team session is already active!")
             return
         from team_mode import _new_lobby
-        # Create lobby with host_id=None or the clicker as placeholder
         team_lobbies[chat_id] = _new_lobby(uid)
         kb = [[InlineKeyboardButton("👑 Claim Host", callback_data="tclaim_host")]]
-        await query.edit_message_text(
-            "👥 <b>Team Mode Selected!</b>\n\nWho wants to be the game host? Click below:",
-            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        await edit_any(query, "👥 <b>Team Mode Selected!</b>\n\nWho wants to be the game host? Click below:", InlineKeyboardMarkup(kb))
 
 async def _start_solo_lobby(update, context, voters=None):
     """Original solo lobby creation logic."""
@@ -525,18 +532,18 @@ async def _start_solo_lobby(update, context, voters=None):
     uid = update.effective_user.id
     m = await get_match(chat_id)
     if (m and m["match_status"] == "Live") or chat_id in active_lobbies:
-        await query.edit_message_text("⚠️ A match or lobby is already active! Use /end_solo or /end_team to terminate it first.")
+        await edit_any(query, "⚠️ A match or lobby is already active! Use /end_solo or /end_team to terminate it first.")
         return
     
     if voters:
         # Pre-authorized by 2-vote system
         active_lobbies[chat_id] = {"host": voters[0], "players": voters.copy(), "votes": [], "status": "waiting", "open": True}
         kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
-        await query.edit_message_text(
+        await edit_any(query,
             f"✅ <b>Votes Complete! Lobby Opened!</b>\n"
             f"Players joined: {len(voters)} | Min 2 needed\n"
             f"Joining period: 2 minutes — game starts after!",
-            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+            InlineKeyboardMarkup(kb))
         for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                 chat_id=chat_id, name=f"lobby_{chat_id}")
@@ -547,18 +554,18 @@ async def _start_solo_lobby(update, context, voters=None):
     if is_admin:
         active_lobbies[chat_id] = {"host": uid, "players": [uid], "votes": [], "status": "waiting", "open": True}
         kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
-        await query.edit_message_text(
+        await edit_any(query,
             f"🏏 <b>Match Lobby Opened!</b>\nPlayers joined: 1 | Min 2 needed\nJoining period: 2 minutes — game starts after!",
-            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+            InlineKeyboardMarkup(kb))
         for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                 chat_id=chat_id, name=f"lobby_{chat_id}")
     else:
         active_lobbies[chat_id] = {"host": uid, "players": [], "votes": [uid], "status": "waiting", "open": False}
         kb = [[InlineKeyboardButton("Vote to Open Lobby (1/2) 🗳", callback_data="vote_open_lobby")]]
-        await query.edit_message_text(
+        await edit_any(query,
             f"🏏 <b>{html.escape(update.effective_user.first_name)}</b> wants to start!\n🗳 2 votes needed.",
-            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+            InlineKeyboardMarkup(kb))
 
     m = await get_match(chat_id)
     if (m and m["match_status"] == "Live") or chat_id in active_lobbies:
