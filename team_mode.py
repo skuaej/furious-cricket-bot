@@ -379,7 +379,22 @@ async def setovers(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     lobby["overs"] = num
     lobby["phase"] = "ready"
-    await update.message.reply_text(f"✅ Match set for <b>{num} overs</b>.\nUse /play_team to start!", parse_mode="HTML")
+    await update.message.reply_text(
+        f"✅ Match set for <b>{num} overs</b>.\nUse /play_team to start!\n\n"
+        f"💡 <i>You can reset match settings using /resetover</i>", parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
+
+async def resetover(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    uid = update.effective_user.id
+    lobby = get_lobby(chat_id)
+    if not lobby or lobby["host_id"] != uid:
+        await update.message.reply_text("❌ Only the host can reset settings."); return
+    
+    lobby["overs"] = 0
+    lobby["phase"] = "overs"
+    await update.message.reply_text("🔄 <b>Match settings reset!</b>\nYou can now set new overs using /setovers [number]", parse_mode="HTML")
     try: await update.message.delete()
     except: pass
 

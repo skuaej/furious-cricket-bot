@@ -11,7 +11,7 @@ from team_mode import (
     join_team_a, join_team_b, add_to_a, add_to_b,
     remove_from_a, remove_from_b,
     addcap_a, addcap_b, remove_cap_a, remove_cap_b,
-    toss, toss_choice, setovers, member_list,
+    toss, toss_choice, setovers, resetover, member_list,
     vote4host_change, host_vote_callback,
     end_team, confirm_end_team, _new_lobby
 )
@@ -1458,6 +1458,7 @@ def main():
     app.add_handler(CommandHandler("remove_cap_b", remove_cap_b))
     app.add_handler(CommandHandler("toss", toss))
     app.add_handler(CommandHandler("setovers", setovers))
+    app.add_handler(CommandHandler("resetover", resetover))
     app.add_handler(CommandHandler("solo_list", solo_list_cmd))
     app.add_handler(CommandHandler("team_list", team_list_cmd))
     app.add_handler(CommandHandler("member_list_team", team_list_cmd))
