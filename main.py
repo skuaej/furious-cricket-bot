@@ -823,13 +823,15 @@ async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
     if chat_id not in active_lobbies:
-        return # already answered at top
+        try: await q.answer("Lobby no longer active."); return
+        except: return
     lobby = active_lobbies[chat_id]
     
     # Handle both Opening lobby and Starting match votes
     if q.data == "vote_open_lobby":
         if uid in lobby["votes"]:
-            return # already answered at top
+            try: await q.answer("You already voted!", show_alert=True); return
+            except: return
         lobby["votes"].append(uid)
         cv = len(lobby["votes"])
         if cv >= 2:
@@ -848,18 +850,17 @@ async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"Vote to Open Lobby ({cv}/2) 🗳", callback_data="vote_open_lobby")]]))
     else:
         # Original vote to start (for backward compat if button exists)
-        await q.answer("Voting to start is now automatic after 2 players join!")
+        try: await q.answer("Voting to start is now automatic after 2 players join!")
+        except: pass
 
 async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    # Answer EVERYTHING instantly at the very start
-    try: await query.answer()
-    except: pass
-    
     chat_id = update.effective_chat.id
     d = query.data
     try:
         if d == "join_game":
+            try: await query.answer()
+            except: pass
             await joingame(update, context)
         elif d == "vote_start" or d == "vote_open_lobby":
             await vote_start(update, context)

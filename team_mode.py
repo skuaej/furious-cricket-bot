@@ -316,8 +316,10 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not lobby or lobby["phase"] != "toss_choice": return
     
     winner = lobby["toss_winner"]
-    if uid != lobby[f"cap_{winner}"]:
-        await query.answer("Only the winning captain can choose!", show_alert=True); return
+    if uid != lobby[f"cap_{winner}"] and uid != lobby["host_id"]:
+        try: await query.answer("Only the winning captain or the host can choose!", show_alert=True)
+        except: pass
+        return
         
     choice = "batting" if query.data == "toss_bat" else "bowling"
     if choice == "batting":
