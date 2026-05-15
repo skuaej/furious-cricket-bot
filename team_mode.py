@@ -537,3 +537,29 @@ async def confirm_end_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("🏁 Team match ended by host/admin.")
     else:
         await query.edit_message_text("❌ Cancelled. Match continues!")
+
+async def hostchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    lobby = get_lobby(chat_id)
+    if not lobby:
+        await update.message.reply_text("No active team match."); return
+    
+    # Check if user is current host or admin
+    uid = update.effective_user.id
+    cm = await context.bot.get_chat_member(chat_id, uid)
+    if lobby["host_id"] != uid and cm.status not in ['administrator', 'creator']:
+        await update.message.reply_text("❌ Only the host or admins can change the host."); return
+
+    # Resolve target
+    target_id = await _resolve_target(update, context)
+    if not target_id:
+        await update.message.reply_text("Usage: /hostchange @username or reply to a message"); return
+        
+    lobby["host_id"] = target_id
+    try:
+        member = await context.bot.get_chat_member(chat_id, target_id)
+        name = html.escape(member.user.first_name)
+    except:
+        name = "New Host"
+        
+    await update.message.reply_text(f"👑 Host changed! <b>{name}</b> is now the game host.", parse_mode="HTML")

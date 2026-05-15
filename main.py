@@ -121,8 +121,9 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
 
         await update_match(chat_id, upd)
         name = html.escape(await get_name(batsman_id))
+        tag = f'<a href="tg://user?id={batsman_id}">{name}</a>'
         await context.bot.send_message(chat_id,
-            f"🏏 {name} scores <b>{runs}</b> run{'s' if runs>1 else ''}!", parse_mode="HTML")
+            f"🏏 {tag} scores <b>{runs}</b> run{'s' if runs>1 else ''}!", parse_mode="HTML")
         cancel_turn_jobs(chat_id, context)
         await notify_turn(chat_id, batsman_id, bowler_id, context)
 
@@ -278,6 +279,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /addcap_a / /addcap_b - Host only: Set team captains\n"
         "• /toss - Host only: Start the match toss\n"
         "• /setovers - Host only: Set match duration\n"
+        "• /hostchange - Host/Admin: Change the match host\n"
         "• /reset_over - Host only: Reset overs before starting\n"
         "• /batting - Captain/Host: Select striker/non-striker\n"
         "• /bowling - Captain/Host: Select next bowler\n"

@@ -1,5 +1,5 @@
 import html, random
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReactionTypeEmoji
 from telegram.ext import ContextTypes
 from team_mode import team_lobbies, get_lobby, _init_player, _resolve_target
 
@@ -197,12 +197,19 @@ async def _process_ball(chat_id, bowl_num, bat_num, context, lobby):
         s2_id = lobby["striker"]
         s2_name = await _get_name(context, chat_id, s2_id, "")
         
+        s_tag = f'<a href="tg://user?id={sid}">{s_name}</a>'
         emoji = "🔵" if lobby["batting_team"] == "a" else "🔴"
-        msg = (f"{header}{emoji} <b>{runs} run{'s' if runs!=1 else ''}!</b>"
+        msg = (f"{header}{emoji} <b>{runs} run{'s' if runs!=1 else ''}!</b> "
+               f"Hit by {s_tag}!"
                f"{' 🔄 Strike rotated!' if rotate else ''}\n"
                f"Score: <b>{r}/{w}</b> ({b//6}.{b%6} ov)\n"
                f"🔴 Striker: {s2_name} | ⚪ Non-striker: {ns_name}")
         await context.bot.send_message(chat_id, msg, parse_mode="HTML")
+        
+        # Add Thumbs Up reaction to the batter's message
+        try: await update.message.set_reaction("👍")
+        except: pass
+
         await _check_next(chat_id, context, lobby, wicket=False)
 
 async def _check_next(chat_id, context, lobby, wicket=False):
