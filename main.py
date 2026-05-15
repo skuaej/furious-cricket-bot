@@ -144,24 +144,28 @@ async def finish_match(chat_id, context):
     sb = match["scoreboard"]
     players = match["lobby_players"]
 
-    # Build scorecard
-    lines = ["<b>🏏 Cricket Game Ended</b>\n", "━━━ <b>Solo Player</b> ━━━\n"]
+    # State icons: current batter=🟠, out=⚪, alive=🟣 etc.
+    state_emojis = ["⚪", "🟠", "🟣", "🔵", "🔴", "🟡", "🟢"]
+
+    lines = ["<b>📊 Current Solo Score</b>\n\n",
+             "─────➱ Sᴏʟᴏ Pʟᴀʏᴇʀ ➰────\n\n"]
+
     best_bat_uid, best_bat_sr = None, -1.0
     best_bowl_uid, best_bowl_econ = None, 9999.0
 
     for idx, uid in enumerate(players, 1):
         s = sb[str(uid)]
         name = html.escape(await get_name(uid))
-        bat_hist = ", ".join(str(x) for x in s["bat_history"]) if s["bat_history"] else "None"
-        bowl_hist = ", ".join(str(x) for x in s["bowl_history"]) if s["bowl_history"] else "None"
+        bat_hist = ", ".join(str(x) for x in s["bat_history"]) if s["bat_history"] else "-"
+        bowl_hist = ", ".join(str(x) for x in s["bowl_history"]) if s["bowl_history"] else "-"
         sr = round((s["runs"] / s["balls_faced"]) * 100, 2) if s["balls_faced"] > 0 else 0
         econ = round(s["runs_given"] / (s["balls_bowled"] / 6), 2) if s["balls_bowled"] > 0 else 0
+        dot = state_emojis[idx % len(state_emojis)]
         lines.append(
-            f"{idx}. <b>{name}</b> = {s['runs']}({s['balls_faced']})\n"
-            f"   ⭕ 4️⃣s: {s['fours']:02d}, 6️⃣s: {s['sixes']:02d} | SR: {sr}\n"
-            f"   🎯 Wkts: {s['wickets_taken']} | Econ: {econ}\n"
-            f"   ↪ Bat: ({bat_hist})\n"
-            f"   ↪ Bowl: ({bowl_hist})\n"
+            f"{idx}. {dot} {name} = {s['runs']}({s['balls_faced']})\n"
+            f"    ╬⊕ 4️s: {s['fours']:02d}, 6️s: {s['sixes']:02d} - ID: {uid}\n"
+            f"      ╬⊕ Bat: ({bat_hist})\n"
+            f"      ╬⊕ Bowl: ({bowl_hist})\n\n"
         )
         if sr > best_bat_sr:
             best_bat_sr = sr
@@ -177,9 +181,9 @@ async def finish_match(chat_id, context):
     bh_s = sb[str(best_bowl_uid)] if best_bowl_uid else {}
     b_sr = round((bat_s.get('runs',0)/bat_s.get('balls_faced',1))*100,2) if bat_s.get('balls_faced',0)>0 else 0
     b_ec = round(bh_s.get('runs_given',0)/(bh_s.get('balls_bowled',1)/6),2) if bh_s.get('balls_bowled',0)>0 else 0
-    lines.append(f"\n🏆 <b>SOLO MATCH HEROES</b>\n")
-    lines.append(f"🏏 <b>BATTING HERO:</b> {bat_hero} ({bat_s.get('runs',0)} runs, SR: {b_sr})\n")
-    lines.append(f"🎯 <b>BOWLING HERO:</b> {bowl_hero} ({bh_s.get('wickets_taken',0)} wkts, Econ: {b_ec})\n")
+    lines.append(f"――――――――――――――――――\n🏆 <b>GAME OVER — HEROES</b>\n")
+    lines.append(f"🏏 <b>Batting Hero:</b> {bat_hero} | {bat_s.get('runs',0)} runs (SR: {b_sr})\n")
+    lines.append(f"🎯 <b>Bowling Hero:</b> {bowl_hero} | {bh_s.get('wickets_taken',0)} wkts (Econ: {b_ec})\n")
 
     await context.bot.send_message(chat_id, "".join(lines), parse_mode="HTML")
 
@@ -340,19 +344,22 @@ async def notify_turn(chat_id, batsman_id, bowler_id, context):
     bat_name = html.escape(await get_name(batsman_id))
     bowl_name = html.escape(await get_name(bowler_id))
     bot_info = await context.bot.get_me()
-    kb = [[InlineKeyboardButton("Deliver Ball 🔢", url=f"https://t.me/{bot_info.username}?start=bowl")]]
+    kb = [[InlineKeyboardButton("📩 Send Bowl in DM", url=f"https://t.me/{bot_info.username}?start=bowl")]]
+
+    bat_tag = f'<a href="tg://user?id={batsman_id}"><b>{bat_name}</b></a>'
+    bowl_tag = f'<a href="tg://user?id={bowler_id}"><b>{bowl_name}</b></a>'
 
     await context.bot.send_message(chat_id,
-        f"🏏 <a href='tg://user?id={batsman_id}'>{bat_name}</a> is batting\n"
-        f"🎯 <a href='tg://user?id={bowler_id}'>{bowl_name}</a> is bowling\n\n"
-        f"🔢 Bowler, click below to deliver!",
+        f"🏏 👉 {bat_tag} is batting\n"
+        f"⚾ 👉 {bowl_tag} is bowling\n\n"
+        f"🔢 Bowler, click below to deliver the ball in DM!",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
     try:
         await context.bot.send_message(bowler_id,
-            f"🏏 <b>YOUR TURN TO BOWL!</b>\nBatter: {bat_name}\nSend a number (1-6).", parse_mode="HTML")
+            f"⚾ <b>YOUR TURN TO BOWL!</b>\n\nBatter: {bat_name}\nSend a number 1–6 in this chat.", parse_mode="HTML")
     except Exception:
         await context.bot.send_message(chat_id,
-            f"⚠️ Could not DM <a href='tg://user?id={bowler_id}'>{bowl_name}</a>. Start the bot in PM first!",
+            f"⚠️ Could not DM {bowl_tag}. Tell them to start the bot in PM first!",
             parse_mode="HTML")
     # Start 60s bowler timeout
     context.job_queue.run_once(bowl_timeout_cb, 60, chat_id=chat_id, name=f"bowl_timeout_{chat_id}")
@@ -655,30 +662,42 @@ async def score(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     sb = match["scoreboard"]
-    total_runs = sum(sb[str(u)]["runs"] for u in match["lobby_players"])
-    total_balls = sum(sb[str(u)]["balls_faced"] for u in match["lobby_players"])
+    players = match["lobby_players"]
+    total_runs = sum(sb[str(u)]["runs"] for u in players)
+    total_balls = sum(sb[str(u)]["balls_faced"] for u in players)
+    total_wkts = sum(1 for u in players if sb[str(u)]["is_out"])
     overs = total_balls // 6
     extra = total_balls % 6
     rr = round(total_runs / (total_balls / 6), 2) if total_balls > 0 else 0.0
 
-    lines = [f"📊 <b>Current Solo Score</b>\n",
-             f"Total: {total_runs}/{sum(1 for u in match['lobby_players'] if sb[str(u)]['is_out'])} "
-             f"({overs}.{extra} ov) | RR: {rr}\n",
-             "━━━ <b>Solo Player</b> ━━━\n"]
-    for idx, uid in enumerate(match["lobby_players"], 1):
+    state_emojis = ["⚪", "🟠", "🟣", "🔵", "🔴", "🟡", "🟢"]
+    cur_bat = match.get("current_batsman")
+    cur_bowl = match.get("current_bowler")
+
+    lines = [f"<b>📊 Current Solo Score</b>\n\n",
+             f"─────➱ Sᴏʟᴏ Pʟᴀʏᴇʀ ➰────\n\n"]
+
+    for idx, uid in enumerate(players, 1):
         s = sb[str(uid)]
         n = html.escape(await get_name(uid))
-        bat_h = ", ".join(str(x) for x in s["bat_history"]) if s["bat_history"] else "None"
-        bowl_h = ", ".join(str(x) for x in s["bowl_history"]) if s["bowl_history"] else "None"
-        out_mark = " ❌" if s["is_out"] else " 🏏"
+        bat_h = ", ".join(str(x) for x in s["bat_history"]) if s["bat_history"] else "-"
+        bowl_h = ", ".join(str(x) for x in s["bowl_history"]) if s["bowl_history"] else "-"
         sr = round((s["runs"]/s["balls_faced"])*100, 2) if s["balls_faced"] > 0 else 0
-        econ = round(s["runs_given"]/(s["balls_bowled"]/6), 2) if s["balls_bowled"] > 0 else 0
+
+        if uid == cur_bat:
+            dot = "🟠"  # batting now
+        elif s["is_out"]:
+            dot = "⚪"  # out
+        elif uid == cur_bowl:
+            dot = "🟣"  # bowling now
+        else:
+            dot = state_emojis[idx % len(state_emojis)]
+
         lines.append(
-            f"{idx}. {n}{out_mark} = {s['runs']}({s['balls_faced']}) SR: {sr}\n"
-            f"   4️⃣s: {s['fours']:02d}, 6️⃣s: {s['sixes']:02d}\n"
-            f"   🎯 Bowl Econ: {econ} | Wkts: {s['wickets_taken']}\n"
-            f"   Bat: ({bat_h})\n"
-            f"   Bowl: ({bowl_h})\n"
+            f"{idx}. {dot} {n} = {s['runs']}({s['balls_faced']})\n"
+            f"    ╬⊕ 4️s: {s['fours']:02d}, 6️s: {s['sixes']:02d} - ID: {uid}\n"
+            f"      ╬⊕ Bat: ({bat_h})\n"
+            f"      ╬⊕ Bowl: ({bowl_h})\n\n"
         )
     await update.message.reply_text("".join(lines), parse_mode="HTML")
 

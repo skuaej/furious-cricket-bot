@@ -334,54 +334,78 @@ async def swap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📣 <b>{bc}</b>: /batting @user (openers)\n"
         f"📣 <b>{wc}</b>: /bowling @user", parse_mode="HTML")
 
-# ─── /score (team) ───
 async def score_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     lobby = get_lobby(chat_id)
     if not lobby or lobby["phase"] not in ("live_1st","live_2nd","between_innings"):
         await update.message.reply_text("No active team match."); return
     
-    sa, sb = lobby["team_a_score"], lobby["team_b_score"]
+    sa, sb_sc = lobby["team_a_score"], lobby["team_b_score"]
     r1, w1, b1 = sa["runs"], sa["wickets"], sa["balls"]
-    r2, w2, b2 = sb["runs"], sb["wickets"], sb["balls"]
+    r2, w2, b2 = sb_sc["runs"], sb_sc["wickets"], sb_sc["balls"]
+    bat_t = lobby["batting_team"]
+    bowl_t = lobby["bowling_team"]
+    overs = lobby["overs"]
+    crr1 = round(r1/(b1/6),2) if b1>0 else 0.0
+    crr2 = round(r2/(b2/6),2) if b2>0 else 0.0
     
-    lines = [f"📊 <b>Team Match Scoreboard</b>\n",
-             f"🔵 Team A: <b>{r1}/{w1}</b> ({b1//6}.{b1%6} ov)\n",
-             f"🔴 Team B: <b>{r2}/{w2}</b> ({b2//6}.{b2%6} ov)\n"]
-             
+    host_id = lobby["host_id"]
+    try:
+        hm = await context.bot.get_chat_member(chat_id, host_id)
+        hname = html.escape(hm.user.first_name)
+    except: hname = "Host"
+    
+    s_id = lobby.get("striker")
+    ns_id = lobby.get("non_striker")
+    bowl_id = lobby.get("current_bowler")
+    
+    bat_lines = []
+    for pid in [s_id, ns_id]:
+        if pid:
+            s = lobby["player_stats"].get(str(pid), {})
+            pname = await _get_name(context, chat_id, pid)
+            csr = round((s.get("runs",0)/s.get("balls",1))*100,2) if s.get("balls",0)>0 else 0
+            bat_lines.append(f"🏏 {pname} = {s.get('runs',0)}({s.get('balls',0)})\n╬⊕(𝔹𝔺𝔹: {csr})\n")
+    
+    bowl_line = ""
+    if bowl_id:
+        bname = await _get_name(context, chat_id, bowl_id)
+        bowl_line = f"⚾ {bname}\n"
+    
+    target_section = ""
     if lobby["inning"] == 2:
-        bat_t = lobby["batting_team"].upper()
-        sc = lobby[f"team_{lobby['batting_team']}_score"]
-        first = lobby[f"team_{lobby['bowling_team']}_score"]["runs"]
-        needed = first - sc["runs"] + 1
-        left = lobby["overs"]*6 - sc["balls"]
-        req = round(needed/(left/6),2) if left > 0 else 0
-        lines.append(f"\n🎯 Team {bat_t} needs <b>{needed}</b> runs in {left} balls (Req RR: {req})\n")
+        first_sc = lobby[f"team_{bowl_t}_score"]
+        target = first_sc["runs"] + 1
+        balls_rem = overs*6 - lobby[f"team_{bat_t}_score"]["balls"]
+        runs_needed = target - lobby[f"team_{bat_t}_score"]["runs"]
+        rrr = round(runs_needed/(balls_rem/6),2) if balls_rem>0 else 0
+        target_section = (
+            f"────⟂⟂⟂────────⟁⟁⟁────\n"
+            f"🎯 <b>Target:</b> {target} Runs\n"
+            f"╬⊕ Remaining: {balls_rem} Balls ({overs}.0 ov)\n"
+            f"📈 <b>RRR:</b> {rrr}\n"
+            f"────⟂⟂⟂────────⟁⟁⟁────"
+        )
     
-    lines.append("\n🏏 <b>Batting Stats:</b>\n")
-    # Show active batters first
-    for tid in [lobby["striker"], lobby["non_striker"]]:
-        if tid:
-            s = lobby["player_stats"].get(str(tid), {})
-            name = await _get_name(context, chat_id, tid)
-            hist = " ".join(str(x) for x in s.get("bat_hist", []))
-            lines.append(f"• <b>{name}*</b>: {s.get('runs',0)}({s.get('balls',0)}) | Shots: [{hist}]\n")
-            
-    lines.append("\n🎯 <b>Current Bowler:</b>\n")
-    if lobby["current_bowler"]:
-        bid = lobby["current_bowler"]
-        bs = lobby["player_stats"].get(str(bid), {})
-        name = await _get_name(context, chat_id, bid)
-        nb = len(bs.get("bowl_hist",[]))
-        econ = round(bs.get("runs_given",0)/(nb/6),2) if nb>0 else 0
-        # Calculate over runs
-        over_balls = lobby["balls_in_over"]
-        recent = bs.get("bowl_hist", [])[-over_balls:] if over_balls > 0 else []
-        this_over = " ".join(str(x) for x in recent)
-        lines.append(f"• <b>{name}</b>: {bs.get('wickets',0)}/{bs.get('runs_given',0)} (Econ: {econ})\n")
-        lines.append(f"📦 <b>This Over:</b> [{this_over}]\n")
+    msg = (
+        f"────⟂⟂⟂────────⟁⟁⟁────\n"
+        f"𝙾𝚂𝚓𝚓𝚎𝚗𝚟 𝙻𝚎𝚂𝚚 - {bat_t.upper()}\n\n"
+        + "".join(bat_lines) +
+        f"────────────────────\n"
+        f"𝙽𝚐𝚘𝚕𝚎𝚗𝚟 𝙻𝚎𝚂𝚚 - {bowl_t.upper()}\n\n"
+        + bowl_line +
+        f"────────────────────\n"
+        f"👥 <b>Team - A:</b> {r1}/{w1} | {b1//6}.{b1%6} ov\n╬⊕ 𝘾𝘽𝘽: {crr1:.2f}\n"
+        f"➱⋅ ──────────── ⋅➰\n"
+        f"👥 <b>Team - B:</b> {r2}/{w2} | {b2//6}.{b2%6} ov\n╬⊕ 𝘾𝘽𝘽: {crr2:.2f}\n"
+        f"────────────────────\n"
+        + target_section +
+        f"────⟂⟂⟂────────⟁⟁⟁────\n"
+        f"<b>👑 Host: {hname}</b>\n"
+        f"<b>❰ ⏳ Total Overs: {overs}</b>"
+    )
+    await update.message.reply_text(msg, parse_mode="HTML")
 
-    await update.message.reply_text("".join(lines), parse_mode="HTML")
 
 async def _end_match(chat_id, context, lobby):
     lobby["phase"] = "ended"

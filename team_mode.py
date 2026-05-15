@@ -453,42 +453,90 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lobby = get_lobby(chat_id)
     if not lobby:
         await update.message.reply_text("No active team match."); return
-    bat_t = (lobby.get("batting_team") or "?").upper()
-    bowl_t = (lobby.get("bowling_team") or "?").upper()
-    cap_a_name = cap_b_name = "Not set"
-    if lobby["cap_a"]:
+    
+    bat_t = (lobby.get("batting_team") or "None").upper()
+    bowl_t = (lobby.get("bowling_team") or "None").upper()
+    inning = lobby.get("inning", "None")
+    
+    # Host
+    try:
+        host_m = await context.bot.get_chat_member(chat_id, lobby["host_id"])
+        host_name = html.escape(host_m.user.first_name)
+        host_uname = host_m.user.username
+        host_tag = f"@{host_uname}" if host_uname else host_name
+    except:
+        host_tag = "Host"
+    
+    # Cap names
+    async def cap_name(uid):
+        if not uid: return "Not set"
         try:
-            m = await context.bot.get_chat_member(chat_id, lobby["cap_a"])
-            cap_a_name = html.escape(m.user.first_name)
-        except: pass
-    if lobby["cap_b"]:
-        try:
-            m = await context.bot.get_chat_member(chat_id, lobby["cap_b"])
-            cap_b_name = html.escape(m.user.first_name)
-        except: pass
-    host_m = await context.bot.get_chat_member(chat_id, lobby["host_id"])
-    host_name = html.escape(host_m.user.first_name)
+            m = await context.bot.get_chat_member(chat_id, uid)
+            uname = m.user.username
+            return f"@{uname}" if uname else html.escape(m.user.first_name)
+        except: return f"Player {uid}"
+    
+    cap_a = await cap_name(lobby["cap_a"])
+    cap_b = await cap_name(lobby["cap_b"])
+    
+    striker = lobby.get("striker")
+    non_striker = lobby.get("non_striker")
+    cur_bowler = lobby.get("current_bowler")
+    dismissed = lobby.get("dismissed", [])
+    
     lines = [
-        f"👽 <b>Game Host:</b> {host_name}\n\n"
-        f"🏏 Batting: Team {bat_t} | 🎯 Bowling: Team {bowl_t}\n"
-        f"🎩 Cap A: {cap_a_name} | 👒 Cap B: {cap_b_name}\n\n"
-        f"🔵 <b>Team A</b>\n"
+        f"👽 <b>Game Host:</b> {host_tag}\n\n",
+        f"🏏 Batting: Team {bat_t} (Innings {inning})\n",
+        f"🎯 Bowling: Team {bowl_t}\n\n",
+        f"🎩 Team A: {cap_a}\n",
+        f"👒 Team B: {cap_b}\n\n",
+        f"🔵 <b>Team A</b>\n",
     ]
+    
     for i, uid in enumerate(lobby["team_a"], 1):
         try:
             m = await context.bot.get_chat_member(chat_id, uid)
-            cap_mark = " 🎩" if uid == lobby["cap_a"] else ""
-            lines.append(f"{i}. {html.escape(m.user.first_name)}{cap_mark}\n")
+            uname = m.user.username
+            display = f"@{uname}" if uname else html.escape(m.user.first_name)
         except:
-            lines.append(f"{i}. Player {uid}\n")
+            display = f"Player {uid}"
+        
+        cap_mark = " [🧢]" if uid == lobby["cap_a"] else ""
+        if uid == striker or uid == non_striker:
+            status = " 🏏"  # batting
+        elif uid == cur_bowler:
+            status = " 🎯"  # bowling (other team but shown)
+        elif uid in dismissed:
+            status = " ❌"  # out
+        elif lobby.get("phase", "") in ("live_1st", "live_2nd"):
+            status = " ✅"  # alive
+        else:
+            status = ""
+        lines.append(f"{i}. {display}{cap_mark}{status}\n")
+    
     lines.append(f"\n🔴 <b>Team B</b>\n")
+    
     for i, uid in enumerate(lobby["team_b"], 1):
         try:
             m = await context.bot.get_chat_member(chat_id, uid)
-            cap_mark = " 👒" if uid == lobby["cap_b"] else ""
-            lines.append(f"{i}. {html.escape(m.user.first_name)}{cap_mark}\n")
+            uname = m.user.username
+            display = f"@{uname}" if uname else html.escape(m.user.first_name)
         except:
-            lines.append(f"{i}. Player {uid}\n")
+            display = f"Player {uid}"
+        
+        cap_mark = " [🧢]" if uid == lobby["cap_b"] else ""
+        if uid == striker or uid == non_striker:
+            status = " 🏏"  # batting
+        elif uid == cur_bowler:
+            status = " ⚾"  # bowling
+        elif uid in dismissed:
+            status = " ❌"  # out
+        elif lobby.get("phase", "") in ("live_1st", "live_2nd"):
+            status = " ✅"  # alive
+        else:
+            status = ""
+        lines.append(f"{i}. {display}{cap_mark}{status}\n")
+    
     await update.message.reply_text("".join(lines), parse_mode="HTML")
 
 # ─── /end_team ───
