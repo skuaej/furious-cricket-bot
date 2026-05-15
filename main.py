@@ -621,6 +621,7 @@ async def _start_solo_lobby(update, context, voters=None):
                     f"🗳 2 votes needed to open the lobby. Vote below!",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML"
         )
+async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
     if user.is_bot:
