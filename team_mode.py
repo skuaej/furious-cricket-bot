@@ -107,6 +107,12 @@ async def _resolve_target(update, context):
                     if full_query == un or full_query == fn or full_query in fn:
                         res = (int(uid_str), s["first_name"]); break
 
+    # Final Bot Check
+    if res and res[0]:
+        try:
+            m = await context.bot.get_chat_member(chat_id, res[0])
+            if m.user.is_bot: return None, "Bots not allowed"
+        except: pass
     return res if res else (None, "Unknown")
 
 async def _resolve_all_targets(update, context):
