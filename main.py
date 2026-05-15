@@ -386,33 +386,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except: pass
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try: await update.message.delete()
+    except: pass
     help_text = (
-        "🏆 <b>Furious Cricket Game - Help Menu</b> 🏆\n\n"
-        "🏏 <b>SOLO MODE COMMANDS:</b>\n"
+        "🏏 <b>Furious Cricket Bot Help</b>\n\n"
+        "<b>🎮 Solo Mode:</b>\n"
         "• /play - Request a match (needs 2 votes)\n"
-        "• /join - Join an open solo lobby\n"
-        "• /leave_solo - Leave the solo lobby\n"
-        "• /forcestart - Admin only: Force open lobby\n"
-        "• /score - View live solo scoreboard\n"
-        "• /member_list - View players and status\n"
-        "• /userinfo - View your global career stats\n"
-        "• /top - View global top runs leaderboard\n"
-        "• /end_solo - Admin only: Terminate current solo game\n\n"
-        "👥 <b>TEAM MODE COMMANDS:</b>\n"
-        "• /create_team - Create a team match lobby\n"
-        "• /join_teamA / /join_teamB - Join a team\n"
-        "• /add_a / /add_b - Host/Admin: Add players\n"
-        "• /remove_a / /remove_b - Host/Admin: Remove players\n"
-        "• /toss - Host only: Start the match toss\n"
-        "• /setovers - Host only: Set match duration\n"
-        "• /play_team - Start the match after setup\n"
-        "• /swap - Host only: Start 2nd innings\n"
-        "• /end_team - Admin only: Terminate team match\n\n"
-        "📊 <b>ADMIN COMMANDS:</b>\n"
-        "• /ping - Check bot response time\n"
-        "• /stats - Owner/Sudo: View bot analytics\n"
-        "• /broadcast - Owner/Sudo: Message all users\n"
-        "• /addsudo / /rmsudo - Owner only: Manage admins"
+        "• /join - Join solo lobby\n"
+        "• /leave_solo - Leave lobby\n"
+        "• /score - View solo scoreboard\n\n"
+        "<b>🏟 Team Mode:</b>\n"
+        "• /toss - Start toss (Host only)\n"
+        "• /setovers &lt;num&gt; - Set overs (Host only)\n"
+        "• /resetover - Reset overs (Host only)\n"
+        "• /play_team - Start team match\n"
+        "• /create_team - Open team lobby\n\n"
+        "<b>📊 Stats & Info:</b>\n"
+        "• /member_list - List all players\n"
+        "• /userinfo - View your career stats\n"
+        "• /leaderboard - View top players\n\n"
+        "<b>⚠️ Admin:</b>\n"
+        "• /end_solo / /end_team - Terminate game\n"
+        "• /forcestart - Skip voting"
     )
     await update.message.reply_text(help_text, parse_mode="HTML")
 
@@ -500,6 +495,8 @@ async def notify_turn(chat_id, batsman_id, bowler_id, context):
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    try: await update.message.delete()
+    except: pass
     if update.effective_chat.type == "private":
         await update.message.reply_text("Use /play in a group!")
         return
@@ -524,6 +521,8 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
+    try: await update.message.delete()
+    except: pass
     
     # Admin check
     cm = await context.bot.get_chat_member(chat_id, uid)
@@ -647,8 +646,11 @@ async def _start_solo_lobby(update, context, voters=None):
         )
 async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    user = update.effective_user
-    if user.is_bot:
+    uid = update.effective_user.id
+    try: await update.message.delete()
+    except: pass
+    
+    if chat_id not in active_lobbies:
         return
     
     m = await get_match(chat_id)
@@ -689,6 +691,8 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def leave_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
+    try: await update.message.delete()
+    except: pass
     if chat_id not in active_lobbies:
         await update.message.reply_text("No active lobby to leave."); return
     lobby = active_lobbies[chat_id]
@@ -815,6 +819,8 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def member_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    try: await update.message.delete()
+    except: pass
     # 1. Team Mode Check
     lobby = get_lobby(chat_id)
     if lobby:
@@ -887,6 +893,8 @@ async def confirm_end_action(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def unified_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    try: await update.message.delete()
+    except: pass
     if get_lobby(chat_id):
         await score_team(update, context)
     else:
@@ -942,6 +950,8 @@ async def score_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
+    try: await update.message.delete()
+    except: pass
     u = await get_user(uid)
     name = html.escape(u.get("first_name") or u.get("username", update.effective_user.first_name))
     import datetime
@@ -1011,6 +1021,8 @@ async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try: await update.message.delete()
+    except: pass
     top_users = await users_col.find().sort("total_runs", -1).limit(10).to_list(None)
     if not top_users:
         await update.message.reply_text("No stats available yet."); return
@@ -1026,6 +1038,8 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def reset_overs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
+    try: await update.message.delete()
+    except: pass
     lobby = get_lobby(chat_id)
     if not lobby or lobby["host_id"] != uid:
         await update.message.reply_text("❌ Only the host can reset overs."); return
@@ -1281,6 +1295,7 @@ def main():
     app.add_handler(CommandHandler("joingame", joingame))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("reset_over", reset_overs))
+    app.add_handler(CommandHandler("resetover", reset_overs))
     app.add_handler(CommandHandler("endgame", end_solo_cmd))
     app.add_handler(CommandHandler("end_solo", end_solo_cmd))
     app.add_handler(ChatMemberHandler(log_bot_add, ChatMemberHandler.MY_CHAT_MEMBER))
