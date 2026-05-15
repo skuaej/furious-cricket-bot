@@ -491,7 +491,7 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_photo(
         chat_id=chat_id,
         photo=HEADER_IMAGE,
-        caption="🏟 <b>Match Request!</b>\n\nNeed <b>2 players</b> to vote to start the lobby. <i>(Expires in 2m)</i>",
+        caption="🏟 <b>Match Request!</b>\n\nNeed <b>2 players</b> to vote to start the lobby.",
         reply_markup=InlineKeyboardMarkup(kb),
         parse_mode="HTML"
     )
@@ -1073,10 +1073,10 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"<b>{html.escape(update.effective_user.first_name)}</b>\n{num}\n⚾️ Ball Delivered!\n\n"
                     f"<i>Go back to the group to see the result!</i>",
                     reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-                bat = await get_user(match["current_batsman"])
+                bat_name = html.escape(await get_name(match["current_batsman"]))
                 await context.bot.send_message(match["match_id"],
-                    f"⚾️ <b>Ball Delivered!</b>\n🏏 <a href='tg://user?id={bat['user_id']}'>"
-                    f"{html.escape(bat['username'])}</a>, send your shot (0-5)!", parse_mode="HTML")
+                    f"⚾️ <b>Ball Delivered!</b>\n🏏 <a href='tg://user?id={match['current_batsman']}'>"
+                    f"{bat_name}</a>, send your shot (0-5)!", parse_mode="HTML")
                 context.job_queue.run_once(bat_timeout_cb, 60, chat_id=match["match_id"],
                     name=f"bat_timeout_{match['match_id']}")
                 return
