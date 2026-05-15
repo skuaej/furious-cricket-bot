@@ -1,8 +1,8 @@
-import os, logging, html, random, time, threading, http.server, socketserver
+import os, logging, html, random, time, threading, http.server, socketserver, asyncio
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
-from database import get_user, update_user, create_match, get_match, update_match, end_match, matches_col
+from database import get_user, update_user, create_match, get_match, update_match, end_match, matches_col, users_col
 from team_mode import (
     team_lobbies, get_lobby, hostchange, create_team,
     join_team_a, join_team_b, add_to_a, add_to_b,
@@ -29,7 +29,10 @@ logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 SUPPORT_CHAT_LINK = os.getenv("SUPPORT_CHAT_LINK")
-LOG_CHANNEL_ID = os.getenv("LOG_CHANNEL_ID")
+LOG_CHANNEL_ID = os.getenv("LOG_CHAT_ID")
+OWNER_ID = int(os.getenv("OWNER_ID", 0))
+sudo_users = {OWNER_ID}
+
 active_lobbies = {}
 play_votes = {}
 banned_users = {}  # {user_id: unban_timestamp}
@@ -307,12 +310,28 @@ async def bat_timeout_cb(context: ContextTypes.DEFAULT_TYPE):
 # ─── COMMANDS ───
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    await get_user(user.id, user.username, user.first_name)
+    is_new = False
+    u = await users_col.find_one({"user_id": user.id})
+    if not u:
+        is_new = True
+        await get_user(user.id, user.username, user.first_name)
+    
     kb = [[InlineKeyboardButton("Support 🆘", url=SUPPORT_CHAT_LINK or "https://t.me/support")]]
     await update.message.reply_text(
         f"🏏 Welcome to <b>Furious Cricket Game</b>, {html.escape(user.first_name)}!\n\n"
         "Use /help to see all commands.",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    
+    # Log start
+    if is_new and LOG_CHANNEL_ID:
+        try:
+            await context.bot.send_message(LOG_CHANNEL_ID,
+                f"🆕 <b>New User Started!</b>\n"
+                f"👤 Name: {html.escape(user.first_name)}\n"
+                f"🆔 ID: <code>{user.id}</code>\n"
+                f"🔗 Username: @{user.username if user.username else 'None'}",
+                parse_mode="HTML")
+        except: pass
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
@@ -1022,6 +1041,65 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error(f"Error in handle_number: {e}")
 
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    start_time = time.time()
+    msg = await update.message.reply_text("🚀 Pinging...")
+    end_time = time.time()
+    latency = round((end_time - start_time) * 1000, 2)
+    await msg.edit_text(f"🏁 <b>Pong!</b>\nLatency: <code>{latency}ms</code>", parse_mode="HTML")
+
+async def bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    count = await users_col.count_documents({})
+    active_m = await matches_col.count_documents({"match_status": "Live"})
+    await update.message.reply_text(
+        f"📊 <b>Bot Statistics</b>\n\n"
+        f"👤 Total Users: <code>{count}</code>\n"
+        f"🏏 Active Matches: <code>{active_m}</code>",
+        parse_mode="HTML"
+    )
+
+async def broadcast_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if uid != OWNER_ID and uid not in sudo_users:
+        await update.message.reply_text("❌ Owner/Sudo only."); return
+    if not context.args:
+        await update.message.reply_text("Usage: /broadcast <message>"); return
+    text = update.message.text.partition(' ')[2]
+    users = await users_col.find().to_list(None)
+    sent = 0; failed = 0
+    progress = await update.message.reply_text(f"🚀 <b>Broadcast Started...</b>\nTarget: {len(users)} users", parse_mode="HTML")
+    for user in users:
+        try:
+            await context.bot.send_message(user['user_id'], text)
+            sent += 1
+            await asyncio.sleep(0.05)
+        except: failed += 1
+    await progress.edit_text(f"🏁 <b>Broadcast Complete!</b>\n\n✅ Sent: {sent}\n❌ Failed: {failed}", parse_mode="HTML")
+
+async def add_sudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text("❌ Only Owner can add Sudos."); return
+    if not context.args:
+        await update.message.reply_text("Usage: /addsudo <id>"); return
+    try:
+        sid = int(context.args[0])
+        sudo_users.add(sid)
+        await update.message.reply_text(f"✅ User <code>{sid}</code> added as Sudo.", parse_mode="HTML")
+    except: await update.message.reply_text("❌ Invalid User ID.")
+
+async def rm_sudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text("❌ Only Owner can remove Sudos."); return
+    if not context.args:
+        await update.message.reply_text("Usage: /rmsudo <id>"); return
+    try:
+        sid = int(context.args[0])
+        if sid in sudo_users:
+            sudo_users.remove(sid)
+            await update.message.reply_text(f"✅ User <code>{sid}</code> removed from Sudo.", parse_mode="HTML")
+        else: await update.message.reply_text("❌ User not in Sudo list.")
+    except: await update.message.reply_text("❌ Invalid User ID.")
+
 async def log_bot_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log when the bot is added to a new group."""
     result = update.my_chat_member
@@ -1060,6 +1138,14 @@ def main():
     app.add_handler(ChatMemberHandler(log_bot_add, ChatMemberHandler.MY_CHAT_MEMBER))
     app.add_handler(CommandHandler("score", unified_score))
     app.add_handler(CommandHandler("userinfo", userinfo))
+    
+    # Admin commands
+    app.add_handler(CommandHandler("ping", ping))
+    app.add_handler(CommandHandler("stats", bot_stats))
+    app.add_handler(CommandHandler("total", bot_stats))
+    app.add_handler(CommandHandler("broadcast", broadcast_cmd))
+    app.add_handler(CommandHandler("addsudo", add_sudo))
+    app.add_handler(CommandHandler("rmsudo", rm_sudo))
     # Team mode commands
     app.add_handler(CommandHandler("hostchange", hostchange))
     app.add_handler(CommandHandler("create_team", create_team))
