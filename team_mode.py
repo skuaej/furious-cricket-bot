@@ -357,8 +357,10 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cap_id = lobby[f"cap_{winner}"]
         cap_name = await _get_name(context, chat_id, cap_id, "Captain")
 
+        
         kb = [[InlineKeyboardButton("🏏 Batting", callback_data="toss_bat"),
                InlineKeyboardButton("⚾ Bowling", callback_data="toss_bowl")]]
+        
         await query.edit_message_text(
             f"🪙 The coin shows <b>{outcome}</b>!\n"
             f"🎉 <b>Team {winner.upper()} won the toss!</b>\n\n"
@@ -366,33 +368,35 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
         return
 
-    # 3. Handle Batting/Bowling preference
-    if lobby["phase"] != "toss_choice":
+    # Phase 3: Host chooses Batting or Bowling
+    if query.data in ["toss_bat", "toss_bowl"]:
+        if uid != lobby["host_id"]:
+            try: await query.answer("❌ Only the Host can choose the preference!", show_alert=True)
+            except: pass
+            return
+            
+        winner = lobby.get("toss_winner")
+        if not winner:
+            try: await query.answer("❌ Toss data missing. Start again with /toss", show_alert=True)
+            except: pass
+            return
+            
         try: await query.answer()
         except: pass
-        return
-    
-    if uid != lobby["host_id"]:
-        try: await query.answer("Only the Host can choose!", show_alert=True)
-        except: pass
-        return
-    
-    try: await query.answer()
-    except: pass
         
-    winner = lobby["toss_winner"]
-    choice = "batting" if query.data == "toss_bat" else "bowling"
-    if choice == "batting":
-        lobby["batting_team"] = winner
-        lobby["bowling_team"] = "b" if winner == "a" else "a"
-    else:
-        lobby["bowling_team"] = winner
-        lobby["batting_team"] = "b" if winner == "a" else "a"
-        
-    lobby["phase"] = "overs"
-    await query.edit_message_text(
-        f"✅ Team {winner.upper()} chose to <b>{choice}</b> first!\n\n"
-        f"👋 Host, set match overs using /setovers <num>", parse_mode="HTML")
+        choice = "batting" if query.data == "toss_bat" else "bowling"
+        if choice == "batting":
+            lobby["batting_team"] = winner
+            lobby["bowling_team"] = "b" if winner == "a" else "a"
+        else:
+            lobby["bowling_team"] = winner
+            lobby["batting_team"] = "b" if winner == "a" else "a"
+            
+        lobby["phase"] = "overs"
+        await query.edit_message_text(
+            f"✅ Team {winner.upper()} chose to <b>{choice}</b> first!\n\n"
+            f"👋 Host, set match overs using /setovers <num>", parse_mode="HTML")
+        return
 
 # ─── /setovers ───
 async def setovers(update: Update, context: ContextTypes.DEFAULT_TYPE):
