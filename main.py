@@ -457,7 +457,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /leave_solo - Leave the solo lobby\n"
         "• /forcestart - Admin only: Force open lobby\n"
         "• /score - View live solo scoreboard\n"
-        "• /member_list - View players and status\n"
+        "• /solo_list - View players and status\n"
         "• /userinfo - View your global career stats\n"
         "• /top - View global top runs leaderboard\n"
         "• /end_solo - Admin only: Terminate current solo game\n\n"
@@ -914,7 +914,7 @@ async def member_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i, pid in enumerate(match["lobby_players"], 1):
         name = html.escape(await get_name(pid))
         is_out = sb[str(pid)]["is_out"]
-        status = "❌" if is_out else "✅"
+        status = "❌" if is_out else "🟢"
         if not is_out:
             if pid == match["current_batsman"]:
                 status += " 🏏"
@@ -1409,6 +1409,7 @@ def main():
     app.add_handler(CommandHandler("toss", toss))
     app.add_handler(CommandHandler("setovers", setovers))
     app.add_handler(CommandHandler("member_list", member_list_cmd))
+    app.add_handler(CommandHandler("solo_list", member_list_cmd))
     app.add_handler(CommandHandler("play_team", play_team))
     app.add_handler(CommandHandler("bowling", bowling))
     app.add_handler(CommandHandler("batting", batting_cmd))

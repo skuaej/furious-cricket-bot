@@ -369,7 +369,7 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
             s = lobby["player_stats"].get(str(uid), {})
             display = html.escape(s.get("first_name", f"Player {uid}"))
             cap_mark = " (C) 👑" if uid == lobby[f"cap_{team}"] else ""
-            status = "❌" if s.get("is_out") else "✅"
+            status = "❌" if s.get("is_out") else "🟢"
             if uid == lobby["striker"]:
                 status += " 🏏"
             elif uid == lobby["current_bowler"]:
