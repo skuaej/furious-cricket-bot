@@ -905,13 +905,16 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
                 
                 # Notify group
-                sid = lobby["striker"]
+                sid = lobby["striker"]; bid = lobby["current_bowler"]
                 from team_game import _get_name, _bat_timeout_team
                 s_name = await _get_name(context, chat_id, sid, "Batter")
+                b_name = await _get_name(context, chat_id, bid, "Bowler")
+                
                 await context.bot.send_message(chat_id,
-                    f"⚾ Ball delivered! <a href='tg://user?id={sid}'>{s_name}</a>, send your shot (0-6)!",
+                    f"⚾ <b>Ball delivered!</b>\n"
+                    f"🏏 <a href='tg://user?id={sid}'>{s_name}</a>, send your shot (0-6) within 1 minute!",
                     parse_mode="HTML")
-                context.job_queue.run_once(_bat_timeout_team, 30, chat_id=chat_id, data={"time_left": 30}, name=f"tbat_{chat_id}")
+                context.job_queue.run_once(_bat_timeout_team, 30, chat_id=chat_id, data={"time_left": 60}, name=f"tbat_{chat_id}")
                 return
         
         # If we reached here, no active turn was found for this user in any game
