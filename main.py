@@ -679,6 +679,7 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.message: await update.message.reply_text(msg)
         return
 
+    user = update.effective_user
     if user.id not in lobby["players"]:
         lobby["players"].append(user.id)
         ud = await get_user(user.id)
@@ -695,7 +696,10 @@ async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "Already in lobby!"
         if update.message: await update.message.reply_text(msg)
         elif update.callback_query: await update.callback_query.answer(msg, show_alert=True)
-        return
+    
+    try: await update.message.delete()
+    except: pass
+    return
 
 async def leave_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id

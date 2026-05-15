@@ -125,20 +125,18 @@ async def _announce_crease(chat_id, context, lobby):
 async def create_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    try: await update.message.delete()
-    except: pass
     lobby = get_lobby(chat_id)
     if not lobby or lobby["host_id"] != uid:
-        await update.message.reply_text("❌ Only the host can create teams.")
-        return
+        await update.message.reply_text("❌ Only the host can create teams."); return
     if lobby["phase"] != "setup":
-        await update.message.reply_text("Teams already created!")
-        return
+        await update.message.reply_text("Teams already created!"); return
     lobby["phase"] = "joining_a"
     await update.message.reply_text(
         "🎉 Team creation underway!\n📣 Join <b>Team A</b> → /join_teamA\n⏳ <b>1 minute</b> to join!",
         parse_mode="HTML")
     context.job_queue.run_once(_close_team_a, 60, chat_id=chat_id, name=f"teamA_{chat_id}")
+    try: await update.message.delete()
+    except: pass
 
 async def _close_team_a(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -168,41 +166,37 @@ async def _close_team_b(context: ContextTypes.DEFAULT_TYPE):
 async def join_team_a(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
-    try: await update.message.delete()
-    except: pass
     lobby = get_lobby(chat_id)
     if not lobby or lobby["phase"] != "joining_a":
-        await update.message.reply_text("Team A joining not open.")
-        return
+        await update.message.reply_text("Team A joining not open."); return
     if user.is_bot:
         await update.message.reply_text("❌ Bots cannot join teams!"); return
     if user.id in lobby["team_a"] or user.id in lobby["team_b"]:
-        await update.message.reply_text("You already joined a team!")
-        return
+        await update.message.reply_text("You already joined a team!"); return
     lobby["team_a"].append(user.id)
     _init_player(lobby, user.id, user.username, user.first_name)
     await get_user(user.id, user.username, user.first_name)
     await update.message.reply_text(f"✈️ <b>{html.escape(user.first_name)}</b> joined <b>Team A</b>!", parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 # ─── /join_teamB ───
 async def join_team_b(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
-    try: await update.message.delete()
-    except: pass
     lobby = get_lobby(chat_id)
     if not lobby or lobby["phase"] != "joining_b":
-        await update.message.reply_text("Team B joining not open.")
-        return
+        await update.message.reply_text("Team B joining not open."); return
     if user.is_bot:
         await update.message.reply_text("❌ Bots cannot join teams!"); return
     if user.id in lobby["team_a"] or user.id in lobby["team_b"]:
-        await update.message.reply_text("You already joined a team!")
-        return
+        await update.message.reply_text("You already joined a team!"); return
     lobby["team_b"].append(user.id)
     _init_player(lobby, user.id, user.username, user.first_name)
     await get_user(user.id, user.username, user.first_name)
     await update.message.reply_text(f"🚀 <b>{html.escape(user.first_name)}</b> joined <b>Team B</b>!", parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 # ─── /add_a /add_b ───
 async def add_to_a(update, context): await _host_add(update, context, "a")
@@ -290,8 +284,6 @@ async def _remove_captain(update, context, team):
 async def toss(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    try: await update.message.delete()
-    except: pass
     lobby = get_lobby(chat_id)
     if not lobby:
         await update.message.reply_text("❌ No active team session. Use /play first."); return
@@ -313,6 +305,8 @@ async def toss(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🪙 <b>Toss Result:</b> Team {winner.upper()} won the toss!\n\n"
         f"👑 <a href='tg://user?id={cap_id}'>{cap_name}</a>, choose your preference:",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -342,8 +336,6 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def setovers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    try: await update.message.delete()
-    except: pass
     lobby = get_lobby(chat_id)
     if not lobby or lobby["host_id"] != uid:
         await update.message.reply_text("❌ Only the host can set overs."); return
@@ -357,12 +349,12 @@ async def setovers(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     lobby["overs"] = num
     await update.message.reply_text(f"✅ Match set for <b>{num} overs</b>.\nUse /play_team to start!", parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 # ─── /member_list ───
 async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    try: await update.message.delete()
-    except: pass
     lobby = get_lobby(chat_id)
     if not lobby:
         await update.message.reply_text("No active team match."); return
@@ -387,13 +379,13 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append("\n")
         
     await update.message.reply_text("".join(lines), parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 # ─── /end_team ───
 async def end_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    try: await update.message.delete()
-    except: pass
     lobby = get_lobby(chat_id)
     if not lobby:
         await update.message.reply_text("No active team match."); return
@@ -409,6 +401,8 @@ async def end_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "❓ <b>End the team match?</b> This cannot be undone.",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    try: await update.message.delete()
+    except: pass
 
 async def confirm_end_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
