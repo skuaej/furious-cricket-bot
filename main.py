@@ -502,6 +502,8 @@ async def _start_solo_lobby(update, context):
 async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
+    if user.is_bot:
+        return
     
     m = await get_match(chat_id)
     if m and m["match_status"] == "Live":

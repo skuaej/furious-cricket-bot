@@ -26,6 +26,7 @@ def _new_lobby(host_id):
 
 def _init_player(lobby, uid, username=None, first_name=None):
     uid_str = str(uid)
+    if username: username = username.lstrip("@").lower()
     if uid_str not in lobby["player_stats"]:
         lobby["player_stats"][uid_str] = {
             "username": username,
@@ -42,38 +43,36 @@ async def _resolve_target(update, context):
     """Extremely robust user resolution (Reply > Entities > Database > Lobby)."""
     chat_id = update.effective_chat.id
     text = update.message.text or ""
+    res = None
     
     # 1. Priority: Reply
     if update.message.reply_to_message:
         u = update.message.reply_to_message.from_user
-        return u.id, u.first_name
+        res = (u.id, u.first_name)
 
     # 2. Priority: Telegram Mention Entities (@username or text_mention)
-    if update.message.entities:
+    if not res and update.message.entities:
         for ent in update.message.entities:
             if ent.type == "text_mention" and ent.user:
-                return ent.user.id, ent.user.first_name
+                res = (ent.user.id, ent.user.first_name); break
             if ent.type == "mention":
                 m_str = text[ent.offset:ent.offset+ent.length].lstrip("@").lower()
-                # Check Database
                 db_u = await find_user_by_username(m_str)
                 if db_u:
                     un = db_u.get("username")
-                    return db_u["user_id"], f"@{un}" if un else db_u.get("first_name")
-                # Check Lobby
+                    res = (db_u["user_id"], f"@{un}" if un else db_u.get("first_name")); break
                 lobby = get_lobby(chat_id)
                 if lobby:
                     for uid_str, s in lobby["player_stats"].items():
                         if s.get("username", "").lower() == m_str:
                             un = s.get("username")
-                            return int(uid_str), f"@{un}" if un else s["first_name"]
+                            res = (int(uid_str), f"@{un}" if un else s["first_name"]); break
+            if res: break
 
     # 3. Priority: Direct Arguments (Plain text or ID)
-    if context.args:
+    if not res and context.args:
         first_arg = context.args[0].lstrip("@")
-        # Check if first arg is an ID or Index
         if first_arg.isdigit():
-            # Index check (1-22)
             if len(first_arg) <= 2:
                 idx = int(first_arg) - 1
                 lobby = get_lobby(chat_id)
@@ -82,34 +81,33 @@ async def _resolve_target(update, context):
                     if 0 <= idx < len(combined):
                         tid = combined[idx]
                         s = lobby["player_stats"].get(str(tid), {})
-                        return tid, s.get("first_name", f"Player {tid}")
+                        res = (tid, s.get("first_name", f"Player {tid}"))
             
-            # Numeric ID check
-            uid = int(first_arg)
-            try:
-                m = await context.bot.get_chat_member(chat_id, uid)
-                return m.user.id, m.user.first_name
-            except:
-                return uid, f"User {uid}"
+            if not res:
+                uid = int(first_arg)
+                try:
+                    m = await context.bot.get_chat_member(chat_id, uid)
+                    res = (m.user.id, m.user.first_name)
+                except:
+                    res = (uid, f"User {uid}")
 
-        # Try searching by username/name in Database
-        full_query = " ".join(context.args).lstrip("@").lower()
-        db_u = await find_user_by_username(full_query)
-        if db_u:
-            un = db_u.get("username")
-            return db_u["user_id"], f"@{un}" if un else db_u.get("first_name")
+        if not res:
+            full_query = " ".join(context.args).lstrip("@").lower()
+            db_u = await find_user_by_username(full_query)
+            if db_u:
+                un = db_u.get("username")
+                res = (db_u["user_id"], f"@{un}" if un else db_u.get("first_name"))
 
-        # Fuzzy Search in current Lobby
-        lobby = get_lobby(chat_id)
-        if lobby:
-            for uid_str, s in lobby["player_stats"].items():
-                un = s.get("username", "").lower()
-                fn = s.get("first_name", "").lower()
-                # Exact or partial match
-                if full_query == un or full_query == fn or full_query in fn:
-                    return int(uid_str), f"@{s['username']}" if s.get('username') else s["first_name"]
+        if not res:
+            lobby = get_lobby(chat_id)
+            if lobby:
+                for uid_str, s in lobby["player_stats"].items():
+                    un = s.get("username", "").lower()
+                    fn = s.get("first_name", "").lower()
+                    if full_query == un or full_query == fn or full_query in fn:
+                        res = (int(uid_str), s["first_name"]); break
 
-    return None, "Unknown"
+    return res if res else (None, "Unknown")
 
 async def _resolve_all_targets(update, context):
     """Returns a list of (user_id, first_name) from reply, all mentions, and args."""
@@ -143,7 +141,7 @@ async def _resolve_all_targets(update, context):
     # 3. Args
     if context.args:
         for arg in context.args:
-            a = arg.lstrip("@")
+            a = arg.lstrip("@").lower()
             if a.isdigit():
                 # Index check
                 if len(a) <= 2:
@@ -157,27 +155,33 @@ async def _resolve_all_targets(update, context):
                             results.append((tid, s.get("first_name", f"Player {tid}")))
                             continue
                 
+                # Direct ID
                 uid = int(a)
-                results.append((uid, f"User {uid}"))
-                continue
-            
-            # Check Database for username
-            db_u = await find_user_by_username(a)
-            if db_u:
-                un = db_u.get("username")
-                results.append((db_u["user_id"], f"@{un}" if un else db_u.get("first_name")))
-                continue
-
-            # Try to resolve arg as name from lobby
-            lobby = get_lobby(chat_id)
-            if lobby:
-                for uid_str, s in lobby["player_stats"].items():
-                    if s.get("username", "").lower() == a.lower() or s.get("first_name", "").lower() == a.lower():
-                        results.append((int(uid_str), s["first_name"]))
+                try:
+                    m = await context.bot.get_chat_member(chat_id, uid)
+                    if not m.user.is_bot:
+                        results.append((m.user.id, m.user.first_name))
+                except:
+                    results.append((uid, f"User {uid}"))
+            else:
+                # Search Lobby
+                found = False
+                lobby = get_lobby(chat_id)
+                if lobby:
+                    for uid_str, s in lobby["player_stats"].items():
+                        if s.get("username", "").lower() == a or s.get("first_name", "").lower() == a:
+                            results.append((int(uid_str), s["first_name"]))
+                            found = True; break
+                # Search Database
+                if not found:
+                    db_u = await find_user_by_username(a)
+                    if db_u:
+                        results.append((db_u["user_id"], db_u.get("first_name") or f"@{db_u['username']}"))
     
     seen = set(); final = []
     for uid, name in results:
-        if uid not in seen: seen.add(uid); final.append((uid, name))
+        if uid and uid not in seen:
+            seen.add(uid); final.append((uid, name))
     return final
 
 # --- /host_claim ---
@@ -245,12 +249,14 @@ async def join_team_a(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not lobby or lobby["phase"] != "joining_a":
         await update.message.reply_text("Team A joining not open.")
         return
+    if user.is_bot:
+        await update.message.reply_text("❌ Bots cannot join teams!"); return
     if user.id in lobby["team_a"] or user.id in lobby["team_b"]:
         await update.message.reply_text("You already joined a team!")
         return
     lobby["team_a"].append(user.id)
     _init_player(lobby, user.id, user.username, user.first_name)
-    await get_user(user.id, user.username)
+    await get_user(user.id, user.username, user.first_name)
     await update.message.reply_text(f"✈️ <b>{html.escape(user.first_name)}</b> joined <b>Team A</b>!", parse_mode="HTML")
 
 # ─── /join_teamB ───
@@ -261,12 +267,14 @@ async def join_team_b(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not lobby or lobby["phase"] != "joining_b":
         await update.message.reply_text("Team B joining not open.")
         return
+    if user.is_bot:
+        await update.message.reply_text("❌ Bots cannot join teams!"); return
     if user.id in lobby["team_a"] or user.id in lobby["team_b"]:
         await update.message.reply_text("You already joined a team!")
         return
     lobby["team_b"].append(user.id)
     _init_player(lobby, user.id, user.username, user.first_name)
-    await get_user(user.id, user.username)
+    await get_user(user.id, user.username, user.first_name)
     await update.message.reply_text(f"🚀 <b>{html.escape(user.first_name)}</b> joined <b>Team B</b>!", parse_mode="HTML")
 
 # ─── /add_a /add_b ───
@@ -291,8 +299,15 @@ async def _host_add(update, context, team):
         
         target_list = lobby["team_a"] if team == "a" else lobby["team_b"]
         if tid not in target_list:
+            # Final verification of player type
+            try:
+                m = await context.bot.get_chat_member(chat_id, tid)
+                if m.user.is_bot: continue
+            except: pass
+            
             target_list.append(tid)
-            _init_player(lobby, tid, tname if tname.startswith("@") else None, tname)
+            pure_name = tname.lstrip("@")
+            _init_player(lobby, tid, pure_name if tname.startswith("@") else None, tname)
             added_names.append(tname)
     
     if added_names:

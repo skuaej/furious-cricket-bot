@@ -73,9 +73,11 @@ async def bowling(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tid, tname = await _resolve_target(update, context)
     if not tid:
         await update.message.reply_text("Reply to player or use @username/ID."); return
+    bowl_team_name = "Team A" if lobby["bowling_team"] == "a" else "Team B"
     bowl_team = lobby["team_a"] if lobby["bowling_team"] == "a" else lobby["team_b"]
     if tid not in bowl_team:
-        await update.message.reply_text("That player is not in the bowling team!"); return
+        await update.message.reply_text(f"❌ <b>{html.escape(tname)}</b> is not in <b>{bowl_team_name}</b> (the current bowling team)!", parse_mode="HTML")
+        return
     lobby["current_bowler"] = tid
     lobby["balls_in_over"] = 0
     lobby["delivery"] = {"bowler_num": None, "status": "waiting_bowler"}
@@ -96,9 +98,11 @@ async def batting_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tid, tname = await _resolve_target(update, context)
     if not tid:
         await update.message.reply_text("Reply to player or use @username/ID."); return
+    bat_team_name = "Team A" if lobby["batting_team"] == "a" else "Team B"
     bat_team = lobby["team_a"] if lobby["batting_team"] == "a" else lobby["team_b"]
     if tid not in bat_team:
-        await update.message.reply_text("Not in batting team!"); return
+        await update.message.reply_text(f"❌ <b>{html.escape(tname)}</b> is not in <b>{bat_team_name}</b> (the current batting team)!", parse_mode="HTML")
+        return
     if tid in lobby.get("dismissed", []):
         await update.message.reply_text("Already out!"); return
     _init_player(lobby, tid)
