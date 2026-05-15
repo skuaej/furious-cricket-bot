@@ -264,9 +264,10 @@ async def _set_captain(update, context, team):
     await update.message.reply_text(f"👑 {html.escape(tname)} is now Captain of Team {team.upper()}!")
     
     if lobby.get("cap_a") and lobby.get("cap_b"):
-        kb = [[InlineKeyboardButton("🪙 Start Toss", callback_data="toss_init")]]
+        kb = [[InlineKeyboardButton("🪙 Heads", callback_data="toss_heads"),
+               InlineKeyboardButton("🪙 Tails", callback_data="toss_tails")]]
         await update.message.reply_text(
-            "✅ <b>Both captains are set!</b>\nHost, you can now start the toss by clicking below:",
+            "✅ <b>Both captains are set!</b>\n🪙 <b>Toss Time!</b> Host, choose your side:",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
     
     try: await update.message.delete()
@@ -379,6 +380,7 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try: await query.answer()
     except: pass
         
+    winner = lobby["toss_winner"]
     choice = "batting" if query.data == "toss_bat" else "bowling"
     if choice == "batting":
         lobby["batting_team"] = winner
