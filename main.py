@@ -121,9 +121,9 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
 
         await update_match(chat_id, upd)
         name = html.escape(await get_name(batsman_id))
-        tag = f'<a href="tg://user?id={batsman_id}">{name}</a>'
+        tag = f'<a href="tg://user?id={batsman_id}"><b>{name}</b></a>'
         await context.bot.send_message(chat_id,
-            f"🏏 {tag} scores <b>{runs}</b> run{'s' if runs>1 else ''}!", parse_mode="HTML")
+            f"🏏 {tag} scores <b>{runs}</b> runs! 👍", parse_mode="HTML")
         cancel_turn_jobs(chat_id, context)
         await notify_turn(chat_id, batsman_id, bowler_id, context)
 
@@ -811,6 +811,9 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="HTML")
                 context.job_queue.run_once(_bat_timeout_team, 30, chat_id=chat_id, data={"time_left": 30}, name=f"tbat_{chat_id}")
                 return
+        
+        # If we reached here, no active turn was found for this user in any game
+        await update.message.reply_text("❌ It's not your turn to bowl, or the game is waiting for the batter. Please check the group!")
         return
     else:
         # BATTER sends shot in group - check solo then team

@@ -203,10 +203,10 @@ async def _process_ball(update, context, lobby, bat_num):
         s2_id = lobby["striker"]
         s2_name = await _get_name(context, chat_id, s2_id, "")
         
-        s_tag = f'<a href="tg://user?id={sid}">{s_name}</a>'
+        s_tag = f'<a href="tg://user?id={sid}"><b>{s_name}</b></a>'
         emoji = "🔵" if lobby["batting_team"] == "a" else "🔴"
-        msg = (f"{header}{emoji} <b>{runs} run{'s' if runs!=1 else ''}!</b> "
-               f"Hit by {s_tag}!"
+        msg = (f"{header}{emoji} <b>{runs} run{'s' if runs!=1 else ''}!</b> 👍\n"
+               f"💥 <b>Hit by:</b> {s_tag}!"
                f"{' 🔄 Strike rotated!' if rotate else ''}\n"
                f"Score: <b>{r}/{w}</b> ({b//6}.{b%6} ov)\n"
                f"🔴 Striker: {s2_name} | ⚪ Non-striker: {ns_name}")
