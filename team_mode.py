@@ -303,7 +303,7 @@ async def toss(update: Update, context: ContextTypes.DEFAULT_TYPE):
            InlineKeyboardButton("⚾ Bowling", callback_data="toss_bowl")]]
     await update.message.reply_text(
         f"🪙 <b>Toss Result:</b> Team {winner.upper()} won the toss!\n\n"
-        f"👑 <b>Host</b> or <a href='tg://user?id={cap_id}'><b>Captain</b></a>, choose preference:",
+        f"👑 <b>Host</b>, choose preference:",
         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
     try: await update.message.delete()
     except: pass
@@ -319,8 +319,8 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     winner = lobby["toss_winner"]
-    if uid != lobby[f"cap_{winner}"] and uid != lobby["host_id"]:
-        try: await query.answer("Only the winning captain or host can choose!", show_alert=True)
+    if uid != lobby["host_id"]:
+        try: await query.answer("Only the Host can choose the toss preference!", show_alert=True)
         except: pass
         return
     

@@ -926,7 +926,7 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try: await query.answer("❌ An error occurred. Try again.", show_alert=True)
         except: pass
     finally:
-        # Extra safety: Ensure the spinner is stopped if not answered
+        # Extra safety: Ensure the spinner is stopped if not answered yet
         try: await query.answer()
         except: pass
 
