@@ -77,8 +77,21 @@ async def edit_any(query, text, kb=None):
 async def voting_expired_cb(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
     if chat_id in play_votes:
+        vote_data = play_votes[chat_id]
+        msg_id = vote_data.get("msg_id")
         del play_votes[chat_id]
-        await context.bot.send_message(chat_id, "⏰ <b>Voting Expired!</b> The match request has timed out.", parse_mode="HTML")
+        
+        text = "⏰ <b>Voting Expired!</b> The match request has timed out."
+        if msg_id:
+            try:
+                await context.bot.edit_message_caption(chat_id=chat_id, message_id=msg_id, caption=text, parse_mode="HTML")
+            except:
+                try:
+                    await context.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=text, parse_mode="HTML")
+                except:
+                    await context.bot.send_message(chat_id, text, parse_mode="HTML")
+        else:
+            await context.bot.send_message(chat_id, text, parse_mode="HTML")
 
 def get_commentary(num):
     return random.choice(COMMENTARY.get(num, ["Nice shot!"]))
@@ -413,6 +426,7 @@ async def lobby_countdown(context: ContextTypes.DEFAULT_TYPE):
         else:
             await start_game_logic(chat_id, context)
         return
+    lobby = active_lobbies[chat_id]
     mentions = []
     for pid in lobby["players"]:
         pn = html.escape(await get_name(pid))
@@ -487,18 +501,20 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Initialize votes for this chat ONLY if not already voting
     if chat_id not in play_votes:
-        play_votes[chat_id] = set()
+        play_votes[chat_id] = {"voters": set(), "msg_id": None}
         context.job_queue.run_once(voting_expired_cb, 120, chat_id=chat_id, name=f"vote_expire_{chat_id}")
     
-    count = len(play_votes[chat_id])
+    count = len(play_votes[chat_id]["voters"])
     kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
-    await context.bot.send_photo(
+    sent = await context.bot.send_photo(
         chat_id=chat_id,
         photo=HEADER_IMAGE,
         caption="🏟 <b>Match Request!</b>\n\nNeed <b>2 players</b> to vote to start the lobby.",
         reply_markup=InlineKeyboardMarkup(kb),
         parse_mode="HTML"
     )
+    if play_votes[chat_id]["msg_id"] is None:
+        play_votes[chat_id]["msg_id"] = sent.message_id
 
 async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -738,18 +754,19 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.answer("⏰ Voting has expired or already completed!", show_alert=True)
                 return
             
-            if uid in play_votes[chat_id]:
+            vote_data = play_votes[chat_id]
+            if uid in vote_data["voters"]:
                 await query.answer("You already voted!", show_alert=True)
                 return
 
-            play_votes[chat_id].add(uid)
-            count = len(play_votes[chat_id])
+            vote_data["voters"].add(uid)
+            count = len(vote_data["voters"])
             
             if count >= 2:
                 # Cancel the expiry timer since votes are complete
                 for j in context.job_queue.get_jobs_by_name(f"vote_expire_{chat_id}"):
                     j.schedule_removal()
-                authorized_voters[chat_id] = list(play_votes[chat_id])
+                authorized_voters[chat_id] = list(vote_data["voters"])
                 del play_votes[chat_id]
                 
                 kb = [
