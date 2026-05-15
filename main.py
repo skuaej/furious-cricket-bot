@@ -967,6 +967,10 @@ async def end_solo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if cm.status not in ['administrator', 'creator']:
         await update.message.reply_text("❌ Only administrators can end the game."); return
 
+    match = await get_match(chat_id)
+    if not (match and match["match_status"] == "Live") and chat_id not in active_lobbies:
+        await update.message.reply_text("❌ No active solo game or lobby found."); return
+
     keyboard = [
         [
             InlineKeyboardButton("✅ YES, END GAME", callback_data="confirm_end_yes"),
@@ -1450,7 +1454,6 @@ def main():
     app.add_handler(CommandHandler("remove_cap_b", remove_cap_b))
     app.add_handler(CommandHandler("toss", toss))
     app.add_handler(CommandHandler("setovers", setovers))
-    app.add_handler(CommandHandler("member_list", solo_list_cmd))
     app.add_handler(CommandHandler("solo_list", solo_list_cmd))
     app.add_handler(CommandHandler("team_list", team_list_cmd))
     app.add_handler(CommandHandler("member_list_team", team_list_cmd))
