@@ -438,9 +438,15 @@ async def confirm_end_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     if query.data == "tend_yes":
         del team_lobbies[chat_id]
-        await query.edit_message_text("🏁 Team match ended by host/admin.")
+        text = "🏁 Team match ended by host/admin."
     else:
-        await query.edit_message_text("❌ Cancelled. Match continues!")
+        text = "❌ Cancelled. Match continues!"
+    
+    try:
+        await query.edit_message_text(text)
+    except:
+        try: await query.edit_message_caption(caption=text)
+        except: await context.bot.send_message(chat_id, text)
 
 # ─── Host Management ───
 async def hostchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
