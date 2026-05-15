@@ -475,6 +475,8 @@ async def score_team(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"╾ ⏳ 𝗧𝗼𝘁𝗮𝗹 𝗢𝘃𝗲𝗿𝘀: {overs}\n"
         f"╾ 📯 𝗛𝗼𝘀𝘁: {hname}"
     )
+    HEADER_IMAGE = "https://i.ibb.co/S40hfh1v/file-00000000088c7207af8fda45c0342247.png"
+    await context.bot.send_photo(chat_id, photo=HEADER_IMAGE)
     await update.message.reply_text(msg, parse_mode="HTML")
 
 

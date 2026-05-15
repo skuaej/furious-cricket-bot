@@ -48,6 +48,9 @@ async def init_sudo():
 active_lobbies = {}
 play_votes = {}
 banned_users = {}  # {user_id: unban_timestamp}
+authorized_voters = {} # {chat_id: [voter_ids]}
+
+HEADER_IMAGE = "https://i.ibb.co/S40hfh1v/file-00000000088c7207af8fda45c0342247.png"
 
 # ─── HELPERS ───
 COMMENTARY = {
@@ -334,10 +337,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await get_user(user.id, user.username, user.first_name)
     
     kb = [[InlineKeyboardButton("Support 🆘", url=SUPPORT_CHAT_LINK or "https://t.me/support")]]
-    await update.message.reply_text(
-        f"🏏 Welcome to <b>Furious Cricket Game</b>, {html.escape(user.first_name)}!\n\n"
-        "Use /help to see all commands.",
-        reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=HEADER_IMAGE,
+        caption=f"🏏 Welcome to <b>Furious Cricket Game</b>, {html.escape(user.first_name)}!\n\nUse /help to see all commands.",
+        reply_markup=InlineKeyboardMarkup(kb),
+        parse_mode="HTML"
+    )
     
     # Log start
     if is_new and LOG_CHANNEL_ID:
@@ -466,9 +472,13 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     count = len(play_votes[chat_id])
     kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
-    await update.message.reply_text(
-        "🏟 <b>Match Request!</b>\n\nNeed <b>2 players</b> to vote to start the lobby. <i>(Expires in 2m)</i>",
-        reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    await context.bot.send_photo(
+        chat_id=chat_id,
+        photo=HEADER_IMAGE,
+        caption="🏟 <b>Match Request!</b>\n\nNeed <b>2 players</b> to vote to start the lobby. <i>(Expires in 2m)</i>",
+        reply_markup=InlineKeyboardMarkup(kb),
+        parse_mode="HTML"
+    )
 
 async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -495,7 +505,8 @@ async def play_mode_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     await query.answer()
     if query.data == "mode_solo":
-        await _start_solo_lobby(update, context)
+        voters = authorized_voters.pop(chat_id, [])
+        await _start_solo_lobby(update, context, voters=voters)
     elif query.data == "mode_team":
         if chat_id in team_lobbies:
             await query.edit_message_text("⚠️ A team session is already active!")
@@ -508,7 +519,7 @@ async def play_mode_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "👥 <b>Team Mode Selected!</b>\n\nWho wants to be the game host? Click below:",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
-async def _start_solo_lobby(update, context):
+async def _start_solo_lobby(update, context, voters=None):
     """Original solo lobby creation logic."""
     query = update.callback_query
     chat_id = update.effective_chat.id
@@ -517,6 +528,21 @@ async def _start_solo_lobby(update, context):
     if (m and m["match_status"] == "Live") or chat_id in active_lobbies:
         await query.edit_message_text("⚠️ A match or lobby is already active! Use /end_solo or /end_team to terminate it first.")
         return
+    
+    if voters:
+        # Pre-authorized by 2-vote system
+        active_lobbies[chat_id] = {"host": voters[0], "players": voters.copy(), "votes": [], "status": "waiting", "open": True}
+        kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
+        await query.edit_message_text(
+            f"✅ <b>Votes Complete! Lobby Opened!</b>\n"
+            f"Players joined: {len(voters)} | Min 2 needed\n"
+            f"Joining period: 2 minutes — game starts after!",
+            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
+            context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
+                chat_id=chat_id, name=f"lobby_{chat_id}")
+        return
+
     cm = await context.bot.get_chat_member(chat_id, uid)
     is_admin = cm.status in ['administrator', 'creator']
     if is_admin:
@@ -547,12 +573,15 @@ async def _start_solo_lobby(update, context):
         # Admin opens lobby immediately, 1-min countdown starts
         active_lobbies[chat_id] = {"host": uid, "players": [uid], "votes": [], "status": "waiting", "open": True}
         kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
-        await update.message.reply_text(
-            f"🏏 <b>Match Lobby Opened!</b>\n"
-            f"Host: {html.escape(update.effective_user.first_name)}\n"
-            f"Players joined: 1 | Min 2 needed\n"
-            f"Joining period: 2 minutes \u2014 game starts after!",
-            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=HEADER_IMAGE,
+            caption=f"🏏 <b>Match Lobby Opened!</b>\n"
+                    f"Host: {html.escape(update.effective_user.first_name)}\n"
+                    f"Players joined: 1 | Min 2 needed\n"
+                    f"Joining period: 2 minutes \u2014 game starts after!",
+            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML"
+        )
         for delay, sl in [(0, 120), (60, 60), (90, 30), (110, 10), (120, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                 chat_id=chat_id, name=f"lobby_{chat_id}")
@@ -560,10 +589,13 @@ async def _start_solo_lobby(update, context):
         # Member: needs 2 votes before lobby opens
         active_lobbies[chat_id] = {"host": uid, "players": [], "votes": [uid], "status": "waiting", "open": False}
         kb = [[InlineKeyboardButton("Vote to Open Lobby (1/2) 🗳", callback_data="vote_open_lobby")]]
-        await update.message.reply_text(
-            f"🏏 <b>{html.escape(update.effective_user.first_name)}</b> wants to start a Cricket match!\n"
-            f"🗳 2 votes needed to open the lobby. Vote below!",
-            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=HEADER_IMAGE,
+            caption=f"🏏 <b>{html.escape(update.effective_user.first_name)}</b> wants to start a Cricket match!\n"
+                    f"🗳 2 votes needed to open the lobby. Vote below!",
+            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML"
+        )
 
 async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -665,6 +697,7 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             count = len(play_votes[chat_id])
             
             if count >= 2:
+                authorized_voters[chat_id] = list(play_votes[chat_id])
                 for j in context.job_queue.get_jobs_by_name(f"vote_expire_{chat_id}"):
                     j.schedule_removal()
                 if chat_id in play_votes: del play_votes[chat_id]
@@ -785,6 +818,7 @@ async def unified_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if get_lobby(chat_id):
         await score_team(update, context)
     else:
+        await context.bot.send_photo(chat_id, photo=HEADER_IMAGE)
         await score_solo(update, context)
 
 async def score_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -896,7 +930,13 @@ async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"🚫 <b>BANNED:</b> {remaining}s remaining\n")
         else:
             del banned_users[uid]
-    await update.message.reply_text("".join(lines), parse_mode="HTML")
+    
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=HEADER_IMAGE,
+        caption="".join(lines),
+        parse_mode="HTML"
+    )
 
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     top_users = await users_col.find().sort("total_runs", -1).limit(10).to_list(None)
