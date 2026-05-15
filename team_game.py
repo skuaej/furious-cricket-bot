@@ -682,12 +682,9 @@ async def _bat_timeout_team(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id, f"⏰ <b>{s_name} timed out 3 times — OUT!</b>", parse_mode="HTML")
             await _check_next(chat_id, context, lobby, wicket=True)
         else:
-            s["runs"] = max(0, s.get("runs",0) - 6)
-            s.setdefault("bat_hist",[]).append(-6)
-            lobby["player_stats"][sk] = s
-            lobby[bat_key]["runs"] = max(0, lobby[bat_key]["runs"] - 6)
+            # Warning only (No -6 penalty)
             lobby["batter_warnings"] = warns + 1
             lobby["delivery"] = {"bowler_num":None,"status":"waiting_bowler"}
             await context.bot.send_message(chat_id,
-                f"⏰ <b>{s_name} timeout!</b> -6 penalty ({warns+1}/2 warnings)", parse_mode="HTML")
+                f"⏰ <b>{s_name} timeout!</b> ({warns+1}/2 warnings)", parse_mode="HTML")
             await _announce_crease(chat_id, context, lobby)

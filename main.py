@@ -441,17 +441,13 @@ async def bat_timeout_cb(context: ContextTypes.DEFAULT_TYPE):
             await update_match(chat_id, {"current_batsman": nxt, "current_bowler": nb, "bowler_index": ni})
             await notify_turn(chat_id, nxt, nb, context)
         else:
-            # Penalty -6 + Warning
-            sb[bk]["runs"] = max(0, sb[bk]["runs"] - 6)
-            sb[bk]["bat_history"].append(-6)
+            # Warning only (No -6 penalty)
             await update_match(chat_id, {
-                "scoreboard": sb, 
                 "batter_timeout_count": tc + 1,
                 "current_delivery": {"bowler_num": None, "status": "waiting_bowler"}
             })
             await context.bot.send_message(chat_id,
-                f"⏰ <b>{name} timeout!</b> -6 penalty ({tc+1}/2 warnings)", parse_mode="HTML")
-            
+                f"⏰ <b>{name} timeout!</b> ({tc+1}/2 warnings)", parse_mode="HTML")
             await notify_turn(chat_id, batsman_id, match["current_bowler"], context)
 
 # ─── COMMANDS ───
