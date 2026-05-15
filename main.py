@@ -1026,7 +1026,7 @@ def main():
     app.add_handler(CommandHandler("reset_over", reset_overs))
     app.add_handler(CommandHandler("endgame", endgame))
     app.add_handler(ChatMemberHandler(log_bot_add, ChatMemberHandler.MY_CHAT_MEMBER))
-    app.add_handler(CommandHandler("score", score))
+    app.add_handler(CommandHandler("score", unified_score))
     app.add_handler(CommandHandler("userinfo", userinfo))
     # Team mode commands
     app.add_handler(CommandHandler("hostchange", hostchange))
@@ -1048,7 +1048,6 @@ def main():
     app.add_handler(CommandHandler("bowling", bowling))
     app.add_handler(CommandHandler("batting", batting_cmd))
     app.add_handler(CommandHandler("swap", swap))
-    app.add_handler(CommandHandler("score", unified_score))
     app.add_handler(CommandHandler("score_team", unified_score))
     app.add_handler(CommandHandler("end_team", end_team))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_number))
