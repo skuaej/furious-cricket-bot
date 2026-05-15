@@ -423,14 +423,14 @@ async def bat_timeout_cb(context: ContextTypes.DEFAULT_TYPE):
         sb = match["scoreboard"]
         # Increment and check warnings
         tc = match.get("batter_timeout_count", 0) + 1
-        if tc >= 2:
-            # OUT on 2nd timeout
+        if tc >= 3:
+            # OUT on 3rd timeout
             sb[bk]["is_out"] = True
             sb[bk]["bat_history"].append("W")
             banned_users[batsman_id] = time.time() + 120
             await update_match(chat_id, {"scoreboard": sb, "batter_timeout_count": 0,
                 "current_delivery": {"bowler_num": None, "status": "waiting_bowler"}})
-            await context.bot.send_message(chat_id, f"⏰ <b>{name} timed out 2 times — OUT + BANNED 2 min!</b>", parse_mode="HTML")
+            await context.bot.send_message(chat_id, f"⏰ <b>{name} timed out 3 times — OUT + BANNED 2 min!</b>", parse_mode="HTML")
             nxt = await next_batsman(match)
             if nxt is None:
                 await finish_match(chat_id, context)
@@ -440,11 +440,15 @@ async def bat_timeout_cb(context: ContextTypes.DEFAULT_TYPE):
             await update_match(chat_id, {"current_batsman": nxt, "current_bowler": nb, "bowler_index": ni})
             await notify_turn(chat_id, nxt, nb, context)
         else:
+            # Penalty -6 + Warning
+            sb[bk]["runs"] = max(0, sb[bk]["runs"] - 6)
+            sb[bk]["bat_history"].append(-6)
             await update_match(chat_id, {
+                "scoreboard": sb,
                 "batter_timeout_count": tc,
                 "current_delivery": {"bowler_num": None, "status": "waiting_bowler"}
             })
-            await context.bot.send_message(chat_id, f"⏰ <b>{name} timeout!</b> (Warning {tc}/2)", parse_mode="HTML")
+            await context.bot.send_message(chat_id, f"⏰ <b>{name} timeout!</b> -6 penalty ({tc}/2 warnings)", parse_mode="HTML")
             await notify_turn(chat_id, batsman_id, match["current_bowler"], context)
 
 # ─── COMMANDS ───
