@@ -12,7 +12,7 @@ from team_mode import (
     remove_from_a, remove_from_b,
     addcap_a, addcap_b, remove_cap_a, remove_cap_b,
     toss, toss_choice, setovers, member_list,
-    vote4host_change,
+    vote4host_change, host_vote_callback,
     end_team, confirm_end_team, _new_lobby
 )
 from team_game import (
@@ -810,6 +810,8 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await toss_choice(update, context)
         elif d.startswith("mode_"):
             await play_mode_select(update, context)
+        elif d == "tvote_host":
+            await host_vote_callback(update, context)
         elif d.startswith("tend_") or d == "tclaim_host":
             await confirm_end_team(update, context)
         else:

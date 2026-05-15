@@ -489,12 +489,39 @@ async def vote4host_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🗳 <b>Votes Complete!</b>\nThe host position is now open for anyone to claim.",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
     else:
+        kb = [[InlineKeyboardButton(f"🗳 Vote for Host Change ({count}/2)", callback_data="tvote_host")]]
         await update.message.reply_text(
-            f"🗳 <b>Host Change Vote ({count}/2)</b>\nNeed 1 more vote to open the host position.",
-            parse_mode="HTML")
+            f"🗳 <b>Host Change Request!</b>\nNeed <b>2 votes</b> to open the host position.",
+            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
     
     try: await update.message.delete()
     except: pass
+
+async def host_vote_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    chat_id = update.effective_chat.id
+    uid = update.effective_user.id
+    lobby = get_lobby(chat_id)
+    if not lobby:
+        await query.answer("No active lobby.", show_alert=True); return
+    
+    if "host_votes" not in lobby: lobby["host_votes"] = set()
+    if uid in lobby["host_votes"]:
+        await query.answer("You already voted!", show_alert=True); return
+        
+    lobby["host_votes"].add(uid)
+    count = len(lobby["host_votes"])
+    
+    if count >= 2:
+        lobby["host_votes"] = set()
+        kb = [[InlineKeyboardButton("👑 Claim Host", callback_data="tclaim_host")]]
+        await query.edit_message_text(
+            "🗳 <b>Votes Complete!</b>\nThe host position is now open for anyone to claim.",
+            reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    else:
+        kb = [[InlineKeyboardButton(f"🗳 Vote for Host Change ({count}/2)", callback_data="tvote_host")]]
+        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
+    await query.answer("Vote counted!")
 
 async def hostchange_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Wrapper for consistency
