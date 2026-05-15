@@ -335,8 +335,8 @@ async def toss_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except: pass
             return
 
-        if uid != lobby[f"cap_{winner}"] and uid != lobby["host_id"]:
-            try: await query.answer("❌ Only the Winning Captain or Host can choose!", show_alert=True)
+        if uid != lobby["host_id"]:
+            try: await query.answer("❌ Only the Host can choose the preference!", show_alert=True)
             except: pass
             return
             
