@@ -111,9 +111,12 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
 
         await update_match(chat_id, upd)
         name = html.escape(await get_name(batsman_id))
+        b_name = html.escape(await get_name(bowler_id))
         tag = f'<a href="tg://user?id={batsman_id}"><b>{name}</b></a>'
         await context.bot.send_message(chat_id,
-            f"🏏 {tag} scores <b>{runs}</b> runs! 👍", parse_mode="HTML")
+            f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>{bowler_num}</b> | 🏏 BAT: <b>{batter_num}</b>\n\n"
+            f"🏏 {tag} scores <b>{runs}</b> runs! 👍\n"
+            f"Score: <b>{sb[bk]['runs']}</b>({sb[bk]['balls_faced']})", parse_mode="HTML")
         cancel_turn_jobs(chat_id, context)
         await notify_turn(chat_id, batsman_id, bowler_id, context)
 

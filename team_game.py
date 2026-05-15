@@ -262,7 +262,7 @@ async def _check_next(chat_id, context, lobby, wicket=False):
 
     await _announce_crease(chat_id, context, lobby)
 
-async def _over_card(chat_id, context, lobby):
+async def _build_team_scoreboard(chat_id, context, lobby, mode="over"):
     sa, sb_sc = lobby["team_a_score"], lobby["team_b_score"]
     r1, w1, b1 = sa["runs"], sa["wickets"], sa["balls"]
     r2, w2, b2 = sb_sc["runs"], sb_sc["wickets"], sb_sc["balls"]
@@ -273,9 +273,13 @@ async def _over_card(chat_id, context, lobby):
         hname = html.escape(hm.user.first_name)
     except: hname = "Host"
 
-    lines = [f"📊 Game #{chat_id} Scoreboard\n\n",
-             f"╭━─━─━─━─≪✠≫─━─━─━─━╮\n\n",
-             f"───────⊱ Tᴇᴀᴍ - A ⊰──────\n\n"]
+    if mode == "final":
+        lines = [f"╭━─━─━─━─≪✠≫─━─━─━─━╮\n\n",
+                 f"───────⊱ Tᴇᴀᴍ - A ⊰──────\n\n"]
+    else:
+        lines = [f"📊 Game #{str(chat_id).replace('-100', '')} Scoreboard\n\n",
+                 f"╭━─━─━─━─≪✠≫─━─━─━─━╮\n\n",
+                 f"───────⊱ Tᴇᴀᴍ - A ⊰──────\n\n"]
     
     for uid in lobby["team_a"]:
         s = lobby["player_stats"].get(str(uid), {})
@@ -320,7 +324,11 @@ async def _over_card(chat_id, context, lobby):
 
     lines.append("༺═────────────────═༻\n\n")
     lines.append(f"👑Host: {hname}\n")
-    await context.bot.send_message(chat_id, "".join(lines), parse_mode="HTML")
+    return "".join(lines)
+
+async def _over_card(chat_id, context, lobby):
+    sc_lines = await _build_team_scoreboard(chat_id, context, lobby, "over")
+    await context.bot.send_message(chat_id, sc_lines, parse_mode="HTML")
 
 async def _end_1st(chat_id, context, lobby):
     lobby["phase"] = "between_innings"
