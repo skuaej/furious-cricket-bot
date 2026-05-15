@@ -820,7 +820,7 @@ async def handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # team numbers: 0-6
             if text not in ["0","1","2","3","4","5","6"]:
                 return
-            handled = await handle_team_number(chat_id, uid, num if text != "0" else 0, context)
+            handled = await handle_team_number(update, context)
             if handled:
                 return
         match = await get_match(chat_id)

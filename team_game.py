@@ -125,7 +125,13 @@ async def batting_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await _announce_crease(chat_id, context, lobby)
 
 # ─── Ball handling ───
-async def handle_team_number(chat_id, uid, num, context):
+async def handle_team_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    uid = update.effective_user.id
+    text = update.message.text
+    try: num = int(text)
+    except: return False
+    
     lobby = get_lobby(chat_id)
     if not lobby or lobby["phase"] not in ("live_1st", "live_2nd"): return False
     delivery = lobby["delivery"]
@@ -145,12 +151,12 @@ async def handle_team_number(chat_id, uid, num, context):
         await context.bot.send_message(chat_id, 
             f"👍 <a href='tg://user?id={uid}'>{s_name}</a> <b>played his shot!</b>", 
             parse_mode="HTML")
-        await _process_ball(chat_id, delivery["bowler_num"], num, context, lobby)
-        return True
-
+        return await _process_ball(update, context, lobby, num)
     return False
 
-async def _process_ball(chat_id, bowl_num, bat_num, context, lobby):
+async def _process_ball(update, context, lobby, bat_num):
+    chat_id = update.effective_chat.id
+    bowl_num = lobby["delivery"]["bowler_num"]
     sid = lobby["striker"]; bid = lobby["current_bowler"]
     sk = str(sid); bk = str(bid)
     bat_key = f"team_{lobby['batting_team']}_score"
