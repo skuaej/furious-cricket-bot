@@ -387,24 +387,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
-        "🏏 <b>Furious Cricket Bot Help</b>\n\n"
-        "<b>🎮 Solo Mode:</b>\n"
+        "🏆 <b>Furious Cricket Game - Help Menu</b> 🏆\n\n"
+        "🏏 <b>SOLO MODE COMMANDS:</b>\n"
         "• /play - Request a match (needs 2 votes)\n"
-        "• /join - Join solo lobby\n"
-        "• /leave_solo - Leave lobby\n"
-        "• /score - View solo scoreboard\n\n"
-        "<b>🏟 Team Mode:</b>\n"
-        "• /toss - Start toss (Host only)\n"
-        "• /setovers &lt;num&gt; - Set overs (Host only)\n"
-        "• /resetover - Reset overs (Host only)\n"
-        "• /play_team - Start team match\n"
-        "• /create_team - Open team lobby\n\n"
-        "<b>📊 Stats & Info:</b>\n"
-        "• /member_list - List all players\n"
-        "• /userinfo - View your career stats\n\n"
-        "<b>⚠️ Admin:</b>\n"
-        "• /end_solo / /end_team - Terminate game\n"
-        "• /forcestart - Skip voting"
+        "• /join - Join an open solo lobby\n"
+        "• /leave_solo - Leave the solo lobby\n"
+        "• /forcestart - Admin only: Force open lobby\n"
+        "• /score - View live solo scoreboard\n"
+        "• /member_list - View players and status\n"
+        "• /userinfo - View your global career stats\n"
+        "• /top - View global top runs leaderboard\n"
+        "• /end_solo - Admin only: Terminate current solo game\n\n"
+        "👥 <b>TEAM MODE COMMANDS:</b>\n"
+        "• /create_team - Create a team match lobby\n"
+        "• /join_teamA / /join_teamB - Join a team\n"
+        "• /add_a / /add_b - Host/Admin: Add players\n"
+        "• /remove_a / /remove_b - Host/Admin: Remove players\n"
+        "• /toss - Host only: Start the match toss\n"
+        "• /setovers - Host only: Set match duration\n"
+        "• /play_team - Start the match after setup\n"
+        "• /swap - Host only: Start 2nd innings\n"
+        "• /end_team - Admin only: Terminate team match\n\n"
+        "📊 <b>ADMIN COMMANDS:</b>\n"
+        "• /ping - Check bot response time\n"
+        "• /stats - Owner/Sudo: View bot analytics\n"
+        "• /broadcast - Owner/Sudo: Message all users\n"
+        "• /addsudo / /rmsudo - Owner only: Manage admins"
     )
     await context.bot.send_message(update.effective_chat.id, help_text, parse_mode="HTML")
     try: await update.message.delete()
@@ -1298,6 +1306,8 @@ def main():
     app.add_handler(ChatMemberHandler(log_bot_add, ChatMemberHandler.MY_CHAT_MEMBER))
     app.add_handler(CommandHandler("score", unified_score))
     app.add_handler(CommandHandler("userinfo", userinfo))
+    app.add_handler(CommandHandler("top", leaderboard))
+    app.add_handler(CommandHandler("leaderboard", leaderboard))
     
     # Admin commands
     app.add_handler(CommandHandler("ping", ping))
