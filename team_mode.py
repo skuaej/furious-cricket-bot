@@ -109,7 +109,7 @@ async def _resolve_target(update, context):
                 if full_query == un or full_query == fn or full_query in fn:
                     return int(uid_str), f"@{s['username']}" if s.get('username') else s["first_name"]
 
-    return None, None
+    return None, "Unknown"
 
 async def _resolve_all_targets(update, context):
     """Returns a list of (user_id, first_name) from reply, all mentions, and args."""
@@ -180,14 +180,10 @@ async def _resolve_all_targets(update, context):
         if uid not in seen: seen.add(uid); final.append((uid, name))
     return final
 
-# ─── /hostchange ───
-async def hostchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- /host_claim ---
+async def _host_claim(update, context):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
-    cm = await context.bot.get_chat_member(chat_id, uid)
-    if cm.status not in ['administrator', 'creator']:
-        await update.message.reply_text("❌ Only admins can change the host.")
-        return
     tid, tname = await _resolve_target(update, context)
     if not tid:
         await update.message.reply_text("Reply to a user or provide @username/ID.")
@@ -284,8 +280,8 @@ async def _host_add(update, context, team):
     if not lobby or lobby["host_id"] != uid:
         await update.message.reply_text("❌ Only the host can add players."); return
     targets = await _resolve_all_targets(update, context)
-    if not targets:
-        await update.message.reply_text("Reply to user or provide @username/ID."); return
+    if not targets or targets[0][0] is None:
+        await update.message.reply_text("❌ User not found. <b>TIP:</b> Reply to their message with /add or have them type something in the group first.", parse_mode="HTML"); return
     
     added_names = []
     for tid, tname in targets:
@@ -315,8 +311,8 @@ async def _host_remove(update, context, team):
     if not lobby or lobby["host_id"] != uid:
         await update.message.reply_text("❌ Only the host can remove players."); return
     targets = await _resolve_all_targets(update, context)
-    if not targets:
-        await update.message.reply_text("Reply to user or provide @username/ID."); return
+    if not targets or targets[0][0] is None:
+        await update.message.reply_text("❌ User not found. <b>TIP:</b> Reply to their message with the command for 100% success.", parse_mode="HTML"); return
     
     removed_names = []
     target_list = lobby["team_a"] if team == "a" else lobby["team_b"]
@@ -342,7 +338,7 @@ async def _set_captain(update, context, team):
         await update.message.reply_text("❌ Only the host can set captains."); return
     tid, tname = await _resolve_target(update, context)
     if not tid:
-        await update.message.reply_text("Reply to player or provide @username/ID."); return
+        await update.message.reply_text("❌ User not found. <b>TIP:</b> Reply to their message with /addcap.", parse_mode="HTML"); return
     team_list = lobby["team_a"] if team == "a" else lobby["team_b"]
     if tid not in team_list:
         team_list.append(tid)
@@ -550,16 +546,13 @@ async def hostchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if lobby["host_id"] != uid and cm.status not in ['administrator', 'creator']:
         await update.message.reply_text("❌ Only the host or admins can change the host."); return
 
-    # Resolve target
-    target_id = await _resolve_target(update, context)
-    if not target_id:
-        await update.message.reply_text("Usage: /hostchange @username or reply to a message"); return
+    # Resolve target correctly (unpack tuple)
+    tid, tname = await _resolve_target(update, context)
+    if not tid:
+        await update.message.reply_text("❌ Usage: /hostchange @username or reply to a message"); return
         
-    lobby["host_id"] = target_id
-    try:
-        member = await context.bot.get_chat_member(chat_id, target_id)
-        name = html.escape(member.user.first_name)
-    except:
-        name = "New Host"
+    lobby["host_id"] = tid
+    tname_esc = html.escape(tname)
+    tag = f'<a href="tg://user?id={tid}">{tname_esc}</a>'
         
-    await update.message.reply_text(f"👑 Host changed! <b>{name}</b> is now the game host.", parse_mode="HTML")
+    await update.message.reply_text(f"👑 Host changed! {tag} is now the game host.", parse_mode="HTML")
