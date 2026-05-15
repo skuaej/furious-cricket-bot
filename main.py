@@ -153,7 +153,7 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         sb[bwk]["runs_given"] += runs
         if runs == 4:
             sb[bk]["fours"] += 1
-        elif runs == 6:
+        elif runs == 5:
             sb[bk]["sixes"] += 1
 
         upd = {"scoreboard": sb, "batter_timeout_count": 0,
@@ -170,9 +170,10 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         bt_emoji = num_emojis.get(batter_num, str(batter_num))
         
         # Bowler number is hidden in the result header as requested
+        run_label = " (Dot Ball)" if runs == 0 else ("🔥 FOUR! " if runs == 4 else ("🏆 FIVE! " if runs == 5 else ""))
         await context.bot.send_message(chat_id,
-            f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>❓</b> | 🏏 BAT: <b>{bt_emoji}</b>" + (f" (Dot Ball)" if runs == 0 else "") + "\n\n"
-            f"🏏 {tag} scores <b>{runs} runs!</b> 👍\n"
+            f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>❓</b> | 🏏 BAT: <b>{bt_emoji}</b>{' (Dot Ball)' if runs == 0 else ''}\n\n"
+            f"{run_label}🏏 {tag} scores <b>{runs} runs!</b> 👍\n"
             f"<i>{comm}</i>\n"
             f"Score: <b>{sb[bk]['runs']}</b>({sb[bk]['balls_faced']})", parse_mode="HTML")
         cancel_turn_jobs(chat_id, context)
@@ -728,19 +729,26 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif d.startswith("confirm_end_"):
             await confirm_end_action(update, context)
         elif d == "vote_play":
-            # ALREADY ANSWERED AT TOP
             uid = update.effective_user.id
-            if chat_id not in play_votes: play_votes[chat_id] = set()
+            
+            # If voting has expired or never started, reject
+            if chat_id not in play_votes:
+                await query.answer("⏰ Voting has expired or already completed!", show_alert=True)
+                return
             
             if uid in play_votes[chat_id]:
-                return # Already answered at top
+                await query.answer("You already voted!", show_alert=True)
+                return
 
             play_votes[chat_id].add(uid)
             count = len(play_votes[chat_id])
             
             if count >= 2:
+                # Cancel the expiry timer since votes are complete
+                for j in context.job_queue.get_jobs_by_name(f"vote_expire_{chat_id}"):
+                    j.schedule_removal()
                 authorized_voters[chat_id] = list(play_votes[chat_id])
-                if chat_id in play_votes: del play_votes[chat_id]
+                del play_votes[chat_id]
                 
                 kb = [
                     [InlineKeyboardButton("👤 Solo Mode", callback_data="mode_solo"),
@@ -756,7 +764,10 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
             else:
                 kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
-                await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
+                try:
+                    await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
+                except:
+                    pass
 
         elif d.startswith("toss_"):
             await toss_choice(update, context)

@@ -245,7 +245,8 @@ async def _process_ball(update, context, lobby, bat_num):
         s_tag = f'<a href="tg://user?id={sid}"><b>{s_name}</b></a>'
         emoji = "🔵" if lobby["batting_team"] == "a" else "🔴"
         comm = get_commentary(runs)
-        msg = (f"{header}{emoji} <b>{runs} runs!</b> 👍\n"
+        run_label = "" if runs == 0 else ("🔥 FOUR! " if runs == 4 else ("🏆 FIVE! " if runs == 5 else ""))
+        msg = (f"{header}{emoji} {run_label}<b>{runs} runs!</b> 👍\n"
                f"💥 <b>Hit by:</b> {s_tag}!\n"
                f"<i>{comm}</i>\n"
                f"{' 🔄 Strike rotated!' if rotate else ''}\n"
