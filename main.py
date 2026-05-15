@@ -2,7 +2,10 @@ import os, logging, html, random, time, threading, http.server, socketserver, as
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
-from database import get_user, update_user, create_match, get_match, update_match, end_match, matches_col, users_col
+from database import (
+    get_user, update_user, create_match, get_match, update_match, end_match,
+    matches_col, users_col, get_sudo_users, add_sudo_user, remove_sudo_user
+)
 from team_mode import (
     team_lobbies, get_lobby, hostchange, create_team,
     join_team_a, join_team_b, add_to_a, add_to_b,
@@ -37,20 +40,25 @@ LOG_CHANNEL_ID = os.getenv("LOG_CHAT_ID")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 sudo_users = {OWNER_ID}
 
+async def init_sudo():
+    db_sudos = await get_sudo_users()
+    for s in db_sudos:
+        sudo_users.add(s)
+
 active_lobbies = {}
 play_votes = {}
 banned_users = {}  # {user_id: unban_timestamp}
 
 # ─── HELPERS ───
 COMMENTARY = {
-    0: ["A solid defensive stroke.", "No run there, straight to the fielder.", "Dot ball! Building pressure.", "Well played, but no run."],
-    1: ["Just a single, keeps the strike rotating.", "Pushed into the gap for one.", "Easy run, well judged.", "A quick single taken."],
-    2: ["Excellent running between the wickets for two!", "Driven through the covers for a couple.", "They take two! Good hustle.", "Nicely placed for a double."],
-    3: ["Superb placement! They race back for the third.", "Deep into the outfield, three runs taken.", "Magnificent running! That's three.", "They scamper through for three!"],
-    4: ["CRACKED away for FOUR! 🏏", "Pure class! The ball races to the boundary.", "Beautifully timed! That's a boundary.", "Four runs! What a magnificent shot!"],
-    5: ["Overthrows! A rare five runs for the batting side.", "Five runs! Chaos in the field.", "Unbelievable! They get five runs!"],
-    6: ["HUUUGE! That's out of the park! SIX! 🚀", "Maximum! A monstrous hit!", "Into the stands! What a shot!", "Cleared the ropes with ease! SIX!"],
-    "W": ["BOWLED HIM! A massive breakthrough! ☝️", "OUT! The finger goes up!", "WICKET! A huge blow for the batting side!", "Caught! That's the end of the innings for him."]
+    0: ["A solid defensive stroke.", "No run there, straight to the fielder.", "Dot ball! Building pressure.", "Well played, but no run.", "Deadly dot ball!", "The bowler is keeping it tight.", "Straight into the pads, no run taken.", "Beaten! That was close."],
+    1: ["Just a single, keeps the strike rotating.", "Pushed into the gap for one.", "Easy run, well judged.", "A quick single taken.", "Tapped and ran for one.", "The fielder does well but they get a single.", "Just a nudge for a run.", "One run added to the total."],
+    2: ["Excellent running between the wickets for two!", "Driven through the covers for a couple.", "They take two! Good hustle.", "Nicely placed for a double.", "That's two! Great work in the deep.", "Two runs! The pressure is on.", "They race back for the second run.", "Classic placement for two."],
+    3: ["Superb placement! They race back for the third.", "Deep into the outfield, three runs taken.", "Magnificent running! That's three.", "They scamper through for three!", "Three runs! That's brilliant running.", "Exhausting but they got three!", "Fielding error allows a third run."],
+    4: ["CRACKED away for FOUR! 🏏", "Pure class! The ball races to the boundary.", "Beautifully timed! That's a boundary.", "Four runs! What a magnificent shot!", "A perfect drive for four!", "Boundary! The crowd is loving it.", "Right in the gap, four runs!", "Timed to perfection for four."],
+    5: ["Overthrows! A rare five runs for the batting side.", "Five runs! Chaos in the field.", "Unbelievable! They get five runs!", "Messy fielding results in five runs."],
+    6: ["HUUUGE! That's out of the park! SIX! 🚀", "Maximum! A monstrous hit!", "Into the stands! What a shot!", "Cleared the ropes with ease! SIX!", "That's going, going... GONE! SIX!", "A massive hit over cow-corner! SIX!", "Total destruction! That's a six!", "High and handsome! Six runs!"],
+    "W": ["BOWLED HIM! A massive breakthrough! ☝️", "OUT! The finger goes up!", "WICKET! A huge blow for the batting side!", "Caught! That's the end of the innings for him.", "Stunned silence! He's out.", "Big wicket! The bowler is delighted.", "A perfect delivery! Out!", "The stumps are rattled! He's gone."]
 }
 
 def get_commentary(num):
@@ -347,6 +355,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /score - View live solo scoreboard\n"
         "• /member_list - View players and status\n"
         "• /userinfo - View your global career stats\n"
+        "• /top - View global top runs leaderboard\n"
         "• /end_solo - Admin only: Terminate current solo game\n\n"
         "👥 <b>TEAM MODE COMMANDS:</b>\n"
         "• /create_team - Create a team match lobby\n"
@@ -359,6 +368,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /swap - Host only: Start 2nd innings\n"
         "• /end_team - Admin only: Terminate team match\n\n"
         "📊 <b>ADMIN COMMANDS:</b>\n"
+        "• /ping - Check bot response time\n"
         "• /stats - Owner/Sudo: View bot analytics\n"
         "• /broadcast - Owner/Sudo: Message all users\n"
         "• /addsudo / /rmsudo - Owner only: Manage admins"
@@ -378,12 +388,12 @@ async def lobby_countdown(context: ContextTypes.DEFAULT_TYPE):
         else:
             await start_game_logic(chat_id, context)
         return
-    if tl == 60:
-        await context.bot.send_message(chat_id, "⏳ <b>1 minute left</b> to join the Solo Match!\nType /joingame to enter.", parse_mode="HTML")
-    elif tl == 30:
-        await context.bot.send_message(chat_id, "⏳ <b>30 seconds left</b> to join!", parse_mode="HTML")
-    elif tl == 10:
-        await context.bot.send_message(chat_id, "⚠️ <b>10 seconds remaining!</b> Hurry up!", parse_mode="HTML")
+    if tl == 30:
+        await context.bot.send_message(chat_id, "⏳ <b>30 seconds left</b> to join the Solo Match!\nType /joingame to enter.", parse_mode="HTML")
+    elif tl == 15:
+        await context.bot.send_message(chat_id, "⏳ <b>15 seconds left</b> to join!", parse_mode="HTML")
+    elif tl == 5:
+        await context.bot.send_message(chat_id, "⚠️ <b>5 seconds remaining!</b> Hurry up!", parse_mode="HTML")
 
 async def start_game_logic(chat_id, context):
     if chat_id not in active_lobbies:
@@ -506,9 +516,9 @@ async def _start_solo_lobby(update, context):
         active_lobbies[chat_id] = {"host": uid, "players": [uid], "votes": [], "status": "waiting", "open": True}
         kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
         await query.edit_message_text(
-            f"🏏 <b>Match Lobby Opened!</b>\nPlayers joined: 1 | Min 2 needed\nJoining period: 1 minute — game starts after!",
+            f"🏏 <b>Match Lobby Opened!</b>\nPlayers joined: 1 | Min 2 needed\nJoining period: 30 seconds — game starts after!",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-        for delay, sl in [(0, 60), (30, 30), (50, 10), (60, 0)]:
+        for delay, sl in [(0, 30), (15, 15), (25, 5), (30, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                 chat_id=chat_id, name=f"lobby_{chat_id}")
     else:
@@ -534,9 +544,9 @@ async def _start_solo_lobby(update, context):
             f"🏏 <b>Match Lobby Opened!</b>\n"
             f"Host: {html.escape(update.effective_user.first_name)}\n"
             f"Players joined: 1 | Min 2 needed\n"
-            f"Joining period: 1 minute \u2014 game starts after!",
+            f"Joining period: 30 seconds \u2014 game starts after!",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-        for delay, sl in [(0, 60), (30, 30), (50, 10), (60, 0)]:
+        for delay, sl in [(0, 30), (15, 15), (25, 5), (30, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                 chat_id=chat_id, name=f"lobby_{chat_id}")
     else:
@@ -607,11 +617,11 @@ async def vote_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lobby["open"] = True
             lobby["players"] = lobby["votes"].copy()
             await q.answer("Lobby Opened!")
-            await q.edit_message_text(f"✅ <b>Lobby Opened!</b>\nPlayers: {cv}\nJoining Period: 1 minute.", parse_mode="HTML")
+            await q.edit_message_text(f"✅ <b>Lobby Opened!</b>\nPlayers: {cv}\nJoining Period: 30 seconds.", parse_mode="HTML")
             kb = [[InlineKeyboardButton("Join Game 🏏", callback_data="join_game")]]
             await context.bot.send_message(chat_id, "🏟 <b>Solo Match Lobby is now OPEN!</b>", reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
             # Start countdown
-            for delay, sl in [(0, 60), (30, 30), (50, 10), (60, 0)]:
+            for delay, sl in [(0, 30), (15, 15), (25, 5), (30, 0)]:
                 context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                     chat_id=chat_id, name=f"lobby_{chat_id}")
         else:
@@ -881,6 +891,19 @@ async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             del banned_users[uid]
     await update.message.reply_text("".join(lines), parse_mode="HTML")
 
+async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    top_users = await users_col.find().sort("total_runs", -1).limit(10).to_list(None)
+    if not top_users:
+        await update.message.reply_text("No stats available yet."); return
+    
+    lines = ["🏆 <b>Global Runs Leaderboard</b> 🏆\n\n"]
+    for i, u in enumerate(top_users, 1):
+        name = html.escape(u.get("first_name") or u.get("username") or f"Player {u['user_id']}")
+        runs = u.get("total_runs", 0)
+        lines.append(f"{i}. <b>{name}</b> — <code>{runs}</code> runs\n")
+    
+    await update.message.reply_text("".join(lines), parse_mode="HTML")
+
 async def reset_overs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     uid = update.effective_user.id
@@ -929,7 +952,7 @@ async def forcestart(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"⚡ <b>Lobby Force-Opened by Admin!</b>\nPlayers: {len(lobby['players'])}/2\nWaiting for more...",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-        for delay, sl in [(0, 60), (30, 30), (50, 10), (60, 0)]:
+        for delay, sl in [(0, 30), (15, 15), (25, 5), (30, 0)]:
             context.job_queue.run_once(lobby_countdown, delay, data={'time_left': sl},
                 chat_id=chat_id, name=f"lobby_{chat_id}")
 
@@ -1075,8 +1098,11 @@ async def add_sudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         sid = int(context.args[0])
         sudo_users.add(sid)
-        await update.message.reply_text(f"✅ User <code>{sid}</code> added as Sudo.", parse_mode="HTML")
-    except: await update.message.reply_text("❌ Invalid User ID.")
+        await add_sudo_user(sid)
+        await update.message.reply_text(f"✅ User <code>{sid}</code> added as Sudo and saved to database.", parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Error in add_sudo: {e}")
+        await update.message.reply_text("❌ Invalid User ID or DB error.")
 
 async def rm_sudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
@@ -1087,9 +1113,12 @@ async def rm_sudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sid = int(context.args[0])
         if sid in sudo_users:
             sudo_users.remove(sid)
-            await update.message.reply_text(f"✅ User <code>{sid}</code> removed from Sudo.", parse_mode="HTML")
+            await remove_sudo_user(sid)
+            await update.message.reply_text(f"✅ User <code>{sid}</code> removed from Sudo and database.", parse_mode="HTML")
         else: await update.message.reply_text("❌ User not in Sudo list.")
-    except: await update.message.reply_text("❌ Invalid User ID.")
+    except Exception as e:
+        logger.error(f"Error in rm_sudo: {e}")
+        await update.message.reply_text("❌ Invalid User ID or DB error.")
 
 async def log_bot_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log when the bot is added to a new group."""
@@ -1117,6 +1146,10 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).build()
     
+    # Initialize sudos from DB
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(init_sudo())
+    
     # Priority 1: Callbacks (Must be fast!)
     app.add_handler(CallbackQueryHandler(join_button))
     
@@ -1131,6 +1164,8 @@ def main():
     app.add_handler(ChatMemberHandler(log_bot_add, ChatMemberHandler.MY_CHAT_MEMBER))
     app.add_handler(CommandHandler("score", unified_score))
     app.add_handler(CommandHandler("userinfo", userinfo))
+    app.add_handler(CommandHandler("top", leaderboard))
+    app.add_handler(CommandHandler("leaderboard", leaderboard))
     
     # Admin commands
     app.add_handler(CommandHandler("ping", ping))

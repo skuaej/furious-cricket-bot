@@ -9,6 +9,26 @@ client = AsyncIOMotorClient(MONGO_URI)
 db = client['cricket_legacy']
 users_col = db['users']
 matches_col = db['matches']
+settings_col = db['settings']
+
+async def get_sudo_users():
+    settings = await settings_col.find_one({"type": "sudo_users"})
+    if not settings:
+        return []
+    return settings.get("user_ids", [])
+
+async def add_sudo_user(user_id):
+    await settings_col.update_one(
+        {"type": "sudo_users"},
+        {"$addToSet": {"user_ids": user_id}},
+        upsert=True
+    )
+
+async def remove_sudo_user(user_id):
+    await settings_col.update_one(
+        {"type": "sudo_users"},
+        {"$pull": {"user_ids": user_id}}
+    )
 
 async def get_user(user_id, username=None, first_name=None):
     user = await users_col.find_one({"user_id": user_id})

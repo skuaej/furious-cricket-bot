@@ -12,14 +12,14 @@ async def _get_name(context, chat_id, uid, default="Player"):
     except: return default
 
 COMMENTARY = {
-    0: ["A solid defensive stroke.", "No run there, straight to the fielder.", "Dot ball! Building pressure.", "Well played, but no run."],
-    1: ["Just a single, keeps the strike rotating.", "Pushed into the gap for one.", "Easy run, well judged.", "A quick single taken."],
-    2: ["Excellent running between the wickets for two!", "Driven through the covers for a couple.", "They take two! Good hustle.", "Nicely placed for a double."],
-    3: ["Superb placement! They race back for the third.", "Deep into the outfield, three runs taken.", "Magnificent running! That's three.", "They scamper through for three!"],
-    4: ["CRACKED away for FOUR! 🏏", "Pure class! The ball races to the boundary.", "Beautifully timed! That's a boundary.", "Four runs! What a magnificent shot!"],
-    5: ["Overthrows! A rare five runs for the batting side.", "Five runs! Chaos in the field.", "Unbelievable! They get five runs!"],
-    6: ["HUUUGE! That's out of the park! SIX! 🚀", "Maximum! A monstrous hit!", "Into the stands! What a shot!", "Cleared the ropes with ease! SIX!"],
-    "W": ["BOWLED HIM! A massive breakthrough! ☝️", "OUT! The finger goes up!", "WICKET! A huge blow for the batting side!", "Caught! That's the end of the innings for him."]
+    0: ["A solid defensive stroke.", "No run there, straight to the fielder.", "Dot ball! Building pressure.", "Well played, but no run.", "Deadly dot ball!", "The bowler is keeping it tight.", "Straight into the pads, no run taken.", "Beaten! That was close."],
+    1: ["Just a single, keeps the strike rotating.", "Pushed into the gap for one.", "Easy run, well judged.", "A quick single taken.", "Tapped and ran for one.", "The fielder does well but they get a single.", "Just a nudge for a run.", "One run added to the total."],
+    2: ["Excellent running between the wickets for two!", "Driven through the covers for a couple.", "They take two! Good hustle.", "Nicely placed for a double.", "That's two! Great work in the deep.", "Two runs! The pressure is on.", "They race back for the second run.", "Classic placement for two."],
+    3: ["Superb placement! They race back for the third.", "Deep into the outfield, three runs taken.", "Magnificent running! That's three.", "They scamper through for three!", "Three runs! That's brilliant running.", "Exhausting but they got three!", "Fielding error allows a third run."],
+    4: ["CRACKED away for FOUR! 🏏", "Pure class! The ball races to the boundary.", "Beautifully timed! That's a boundary.", "Four runs! What a magnificent shot!", "A perfect drive for four!", "Boundary! The crowd is loving it.", "Right in the gap, four runs!", "Timed to perfection for four."],
+    5: ["Overthrows! A rare five runs for the batting side.", "Five runs! Chaos in the field.", "Unbelievable! They get five runs!", "Messy fielding results in five runs."],
+    6: ["HUUUGE! That's out of the park! SIX! 🚀", "Maximum! A monstrous hit!", "Into the stands! What a shot!", "Cleared the ropes with ease! SIX!", "That's going, going... GONE! SIX!", "A massive hit over cow-corner! SIX!", "Total destruction! That's a six!", "High and handsome! Six runs!"],
+    "W": ["BOWLED HIM! A massive breakthrough! ☝️", "OUT! The finger goes up!", "WICKET! A huge blow for the batting side!", "Caught! That's the end of the innings for him.", "Stunned silence! He's out.", "Big wicket! The bowler is delighted.", "A perfect delivery! Out!", "The stumps are rattled! He's gone."]
 }
 
 def get_commentary(num):
