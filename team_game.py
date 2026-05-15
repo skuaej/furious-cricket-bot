@@ -689,8 +689,8 @@ async def _bat_timeout_team(context: ContextTypes.DEFAULT_TYPE):
         
         bat_key = f"team_{lobby['batting_team']}_score"
         sk = str(lobby["striker"])
-        if warns >= 3:
-            # OUT on 3rd timeout
+        if warns >= 2:
+            # OUT on 2nd timeout
             lobby["player_stats"][sk]["is_out"] = True
             lobby["player_stats"][sk].setdefault("bat_hist", []).append("W")
             lobby[bat_key]["wickets"] += 1
@@ -699,7 +699,7 @@ async def _bat_timeout_team(context: ContextTypes.DEFAULT_TYPE):
             lobby["delivery"] = {"bowler_num": None, "status": "waiting_bowler"}
             lobby["batter_warnings"] = 0
             
-            await context.bot.send_message(chat_id, f"⏰ <b>{s_name} timed out 3 times — OUT!</b>", parse_mode="HTML")
+            await context.bot.send_message(chat_id, f"⏰ <b>{s_name} timed out 2 times — OUT!</b>", parse_mode="HTML")
             
             cap_id = lobby["cap_a"] if lobby["batting_team"] == "a" else lobby["cap_b"]
             cap_name = await _get_name(context, chat_id, cap_id, "Captain")
@@ -713,5 +713,5 @@ async def _bat_timeout_team(context: ContextTypes.DEFAULT_TYPE):
             
             lobby["delivery"] = {"bowler_num":None,"status":"waiting_bowler"}
             await context.bot.send_message(chat_id,
-                f"⏰ <b>{s_name} timeout!</b> -6 penalty ({warns}/2 warnings)", parse_mode="HTML")
+                f"⏰ <b>{s_name} timeout!</b> -6 penalty (Warning {warns}/1)", parse_mode="HTML")
             await _announce_crease(chat_id, context, lobby)
