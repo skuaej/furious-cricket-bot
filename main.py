@@ -74,6 +74,12 @@ async def edit_any(query, text, kb=None):
         except Exception as e:
             logger.error(f"Failed to edit message: {e}")
 
+async def voting_expired_cb(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.chat_id
+    if chat_id in play_votes:
+        del play_votes[chat_id]
+        await context.bot.send_message(chat_id, "⏰ <b>Voting Expired!</b> The match request has timed out.", parse_mode="HTML")
+
 def get_commentary(num):
     return random.choice(COMMENTARY.get(num, ["Nice shot!"]))
 
@@ -160,13 +166,13 @@ async def process_ball(chat_id, bowler_num, batter_num, context, match, is_auto_
         tag = f'<a href="tg://user?id={batsman_id}"><b>{name}</b></a>'
         comm = get_commentary(runs)
         
-        num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣", 6: "6️⃣"}
-        b_emoji = num_emojis.get(bowler_num, str(bowler_num))
+        num_emojis = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣"}
         bt_emoji = num_emojis.get(batter_num, str(batter_num))
         
+        # Bowler number is hidden in the result header as requested
         await context.bot.send_message(chat_id,
-            f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>{b_emoji}</b> | 🏏 BAT: <b>{bt_emoji}</b>" + (f" (Dot Ball)" if runs == 0 else "") + "\n\n"
-            f"🏏 {tag} scores <b>{runs}</b> runs! 👍\n"
+            f"<b>{name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>❓</b> | 🏏 BAT: <b>{bt_emoji}</b>" + (f" (Dot Ball)" if runs == 0 else "") + "\n\n"
+            f"🏏 {tag} scores <b>{runs} runs!</b> 👍\n"
             f"<i>{comm}</i>\n"
             f"Score: <b>{sb[bk]['runs']}</b>({sb[bk]['balls_faced']})", parse_mode="HTML")
         cancel_turn_jobs(chat_id, context)
@@ -177,12 +183,6 @@ def cancel_turn_jobs(chat_id, context):
         j.schedule_removal()
     for j in context.job_queue.get_jobs_by_name(f"bat_timeout_{chat_id}"):
         j.schedule_removal()
-
-async def voting_expired_cb(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.job.chat_id
-    if chat_id in play_votes:
-        del play_votes[chat_id]
-        await context.bot.send_message(chat_id, "⏰ <b>Voting Expired!</b>\nNot enough votes to start the match lobby in time.", parse_mode="HTML")
 
 async def finish_match(chat_id, context):
     """End match and show full scorecard with MOM."""
@@ -485,6 +485,7 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Initialize votes for this chat ONLY if not already voting
     if chat_id not in play_votes:
         play_votes[chat_id] = set()
+        context.job_queue.run_once(voting_expired_cb, 120, chat_id=chat_id, name=f"vote_expire_{chat_id}")
     
     count = len(play_votes[chat_id])
     kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
@@ -620,8 +621,6 @@ async def _start_solo_lobby(update, context, voters=None):
                     f"🗳 2 votes needed to open the lobby. Vote below!",
             reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML"
         )
-
-async def joingame(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
     if user.is_bot:
@@ -794,19 +793,11 @@ async def member_list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     sb = match["scoreboard"]
-    players = match["lobby_players"]
-    cur_bat = match.get("current_batsman")
-    cur_bowl = match.get("current_bowler")
-    
-    lines = [f"📊 <b>Solo Player List</b>\n\n"]
-    for i, uid in enumerate(players, 1):
-        s = sb[str(uid)]
-        name = html.escape(await get_name(uid))
-        if uid == cur_bat: status = " 🏏"
-        elif uid == cur_bowl: status = " 🎯"
-        elif s.get("is_out"): status = " ❌"
-        else: status = " ✅"
-        lines.append(f"{i}. {name}{status}\n")
+    lines = [f"📊 <b>Solo Match - Players List</b>\n\n"]
+    for i, pid in enumerate(match["lobby_players"], 1):
+        name = html.escape(await get_name(pid))
+        status = "❌ (Out)" if sb[str(pid)]["is_out"] else "✅ (Not Out)"
+        lines.append(f"{i}. <b>{name}</b> — {status}\n")
     
     await update.message.reply_text("".join(lines), parse_mode="HTML")
 
@@ -907,7 +898,7 @@ async def score_solo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines.append(
             f"{idx}. {dot} {n} = {s['runs']}({s['balls_faced']})\n"
-            f"    ╰⊚ 4️⃣s: {s['fours']:02d}, 6️⃣s: {s['sixes']:02d} - ID: {uid}\n"
+            f"    ╰⊚ 4️⃣s: {s['fours']:02d}, 5️⃣s: {s['sixes']:02d} - ID: {uid}\n"
             f"      ╰⊚ Bat: ({bat_h})\n"
             f"      ╰⊚ Bowl: ({bowl_h})\n\n"
         )
@@ -954,7 +945,7 @@ async def userinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎮 Best Game Host: {u.get('host_count', 0)}\n",
         f"📊 Runs: {runs} ({balls})\n",
         f"🎯 Wickets: {wkts}\n",
-        f"💥 Sixes: {sixes}\n",
+        f"🎯 Fives: {sixes}\n",
         f"✨ Fours: {fours}\n",
         f"🔥 Centuries: {cents}\n",
         f"⭐ Fifties: {fifs}\n",

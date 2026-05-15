@@ -205,8 +205,8 @@ async def _process_ball(update, context, lobby, bat_num):
     b_emoji = num_emojis.get(bowl_num, str(bowl_num))
     bt_emoji = num_emojis.get(bat_num, str(bat_num))
 
-    # Header like solo
-    header = f"<b>{s_name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>{b_emoji}</b> | 🏏 BAT: <b>{bt_emoji}</b>" + (f" (Dot Ball)" if bat_num == 0 else "") + "\n\n"
+    # Header like solo (bowler number hidden)
+    header = f"<b>{s_name}</b> vs <b>{b_name}</b>\n⚾ BOWL: <b>❓</b> | 🏏 BAT: <b>{bt_emoji}</b>" + (f" (Dot Ball)" if bat_num == 0 else "") + "\n\n"
 
     if bowl_num == bat_num:
         bs["bat_hist"].append("W"); bs["is_out"] = True
@@ -245,7 +245,7 @@ async def _process_ball(update, context, lobby, bat_num):
         s_tag = f'<a href="tg://user?id={sid}"><b>{s_name}</b></a>'
         emoji = "🔵" if lobby["batting_team"] == "a" else "🔴"
         comm = get_commentary(runs)
-        msg = (f"{header}{emoji} <b>{runs} run{'s' if runs!=1 else ''}!</b> 👍\n"
+        msg = (f"{header}{emoji} <b>{runs} runs!</b> 👍\n"
                f"💥 <b>Hit by:</b> {s_tag}!\n"
                f"<i>{comm}</i>\n"
                f"{' 🔄 Strike rotated!' if rotate else ''}\n"

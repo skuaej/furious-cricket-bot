@@ -520,17 +520,18 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
             display = f"Player {uid}"
         
         cap_mark = " [🧢]" if uid == lobby["cap_a"] else ""
-        if uid == striker or uid == non_striker:
-            status = " 🏏"  # batting
-        elif uid == cur_bowler:
-            status = " 🎯"  # bowling (other team but shown)
-        elif uid in dismissed:
-            status = " ❌"  # out
-        elif lobby.get("phase", "") in ("live_1st", "live_2nd"):
-            status = " ✅"  # alive
+        if uid in dismissed:
+            status = " ❌ (Out)"
         else:
-            status = ""
-        lines.append(f"{i}. {display}{cap_mark}{status}\n")
+            status = " ✅ (Not Out)"
+        
+        # Add icons for current batter/bowler
+        if uid == striker or uid == non_striker:
+            status += " 🏏"
+        elif uid == cur_bowler:
+            status += " 🎯"
+            
+        lines.append(f"{i}. <b>{display}</b>{cap_mark} — {status}\n")
     
     lines.append(f"\n🔴 <b>Team B</b>\n")
     
@@ -542,17 +543,17 @@ async def member_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
             display = f"Player {uid}"
         
         cap_mark = " [🧢]" if uid == lobby["cap_b"] else ""
-        if uid == striker or uid == non_striker:
-            status = " 🏏"  # batting
-        elif uid == cur_bowler:
-            status = " 🎯"  # bowling
-        elif uid in dismissed:
-            status = " ❌"  # out
-        elif lobby.get("phase", "") in ("live_1st", "live_2nd"):
-            status = " ✅"  # alive
+        if uid in dismissed:
+            status = " ❌ (Out)"
         else:
-            status = ""
-        lines.append(f"{i}. {display}{cap_mark}{status}\n")
+            status = " ✅ (Not Out)"
+            
+        if uid == striker or uid == non_striker:
+            status += " 🏏"
+        elif uid == cur_bowler:
+            status += " 🎯"
+            
+        lines.append(f"{i}. <b>{display}</b>{cap_mark} — {status}\n")
     
     await update.message.reply_text("".join(lines), parse_mode="HTML")
 
