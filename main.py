@@ -466,9 +466,8 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # Initialize votes for this chat ONLY if not already voting
-    if chat_id not in play_votes or not play_votes[chat_id]:
+    if chat_id not in play_votes:
         play_votes[chat_id] = set()
-        context.job_queue.run_once(voting_expired_cb, 120, chat_id=chat_id, name=f"vote_expire_{chat_id}")
     
     count = len(play_votes[chat_id])
     kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
@@ -698,18 +697,21 @@ async def join_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             if count >= 2:
                 authorized_voters[chat_id] = list(play_votes[chat_id])
-                for j in context.job_queue.get_jobs_by_name(f"vote_expire_{chat_id}"):
-                    j.schedule_removal()
                 if chat_id in play_votes: del play_votes[chat_id]
+                
                 kb = [
                     [InlineKeyboardButton("👤 Solo Mode", callback_data="mode_solo"),
                      InlineKeyboardButton("👥 Team Mode", callback_data="mode_team")]
                 ]
-                await query.edit_message_text(
-                    "🏁 <b>Votes Complete!</b>\nSelect your game mode to begin:",
-                    reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                try:
+                    await query.edit_message_caption(
+                        caption="🏁 <b>Votes Complete!</b>\nSelect your game mode to begin:",
+                        reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                except:
+                    await query.edit_message_text(
+                        "🏁 <b>Votes Complete!</b>\nSelect your game mode to begin:",
+                        reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
             else:
-                # We already answered at the top, so we just update the button
                 kb = [[InlineKeyboardButton(f"🏏 Vote to Play ({count}/2)", callback_data="vote_play")]]
                 await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(kb))
 
